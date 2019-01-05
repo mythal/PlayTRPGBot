@@ -1,6 +1,8 @@
-这个 bot 是用来帮助在 Telegram 中[跑团](https://zh.moegirl.org/zh-hans/TRPG)造就的
+我是用来帮助在 Telegram 中[跑团](https://zh.moegirl.org/zh-hans/TRPG)而诞生的
 
-请在一个新的群，将 bot 加为管理员开始使用
+请在一个新的超级群，将我加为管理员开始使用
+
+群中的其他管理员会被视为 GM
 
 **注意本 bot 会记录消息在数据库内！**
 

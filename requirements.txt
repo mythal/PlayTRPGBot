@@ -1,3 +1,5 @@
-Django==2.1.4
-python-dotenv==0.10.1
-python-telegram-bot==11.1.0
+Django
+python-dotenv
+python-telegram-bot
+psycopg2-binary
+redis
