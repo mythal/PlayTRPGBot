@@ -2,14 +2,14 @@ version: "3"
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8080
+    command: python manage.py runserver 0.0.0.0:8880
     restart: always
     volumes:
       - .:/code
     depends_on:
       - db
     ports:
-      - "8080:8080"
+      - "8880:8880"
     environment:
       - PYTHONPATH=/code
   db:
@@ -23,6 +23,7 @@ services:
       - .env
   redis:
     image: redis
+    restart: always
     volumes:
       - ./data/redis:/data
     ports:
@@ -30,8 +31,13 @@ services:
   bot:
     build: .
     command: python bot.py
+    restart: always
+    ports:
+      - 9990:9990
     depends_on:
       - db
       - redis
     env_file:
       - .env
+    volumes:
+      - .:/code
