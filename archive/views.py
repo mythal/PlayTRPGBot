@@ -10,8 +10,11 @@ def index(request):
 
 def logs(request, chat_id):
     chat = get_object_or_404(Chat, id=chat_id)
+    log_filter = dict()
+    if chat.save_date:
+        log_filter['created__lt'] = chat.save_date
     context = dict(
         chat=chat,
-        logs=chat.log_set.filter(deleted=False, created__lt=chat.save_date),
+        logs=chat.log_set.filter(deleted=False, **log_filter),
     )
     return render(request, 'chat.html', context)
