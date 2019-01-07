@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ chat.title }}</title>
+</head>
+<body>
+<h1>{{ chat.title }}</h1>
+
+<div class="logs">
+    {% for log in logs %}
+        <div class="log">
+            {% if log.get_kind_display == 'NORMAL' %}
+                <span class="character">{{ log.character_name }}</span><span>{{ log.content | safe }}</span>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+</body>
+</html>

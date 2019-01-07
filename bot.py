@@ -370,7 +370,10 @@ def run_chat_job(_, update, job_queue):
 def handle_message(bot, update, with_photo=None):
     message = update.message
     assert isinstance(message, telegram.Message)
-    text = message.text
+    if with_photo:
+        text = message.caption_html_urled
+    else:
+        text = message.text_html_urled
     if not isinstance(text, str):
         return
     message_match = re.match(r'^[.。](\w*)\s*', text)
@@ -415,8 +418,6 @@ def handle_photo(bot, update):
     if len(photo_size_list) == 0:
         return
     photo_size_list.sort(key=lambda p: p.file_size)
-    message.text = message.caption
-    message.entities = message.caption_entities
     handle_message(bot, update, with_photo=photo_size_list[-1])
 
 

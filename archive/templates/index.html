@@ -8,9 +8,16 @@
 
 <h1>Play TRPG</h1>
 
-Coming Soon...
 
-<a href="/admin">Admin</a>
-
+<p><a href="{% url 'admin' %}">Admin</a></p>
+<ul>
+    {% for chat in chats %}
+        <li>
+            <div>
+                <a href="{% url 'logs' chat.id %}">{{ chat.title }}</a>
+            </div>
+        </li>
+    {% endfor %}
+</ul>
 </body>
 </html>
