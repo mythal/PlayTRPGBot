@@ -1,0 +1,48 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body {
+    font-size: 16px;
+    max-width: 40rem;
+    margin: 2rem auto;
+    font-family: "Roboto", "Lucida Grande", "DejaVu Sans", "Bitstream Vera Sans", Verdana, Arial, sans-serif;
+}
+
+
+.character {
+    display: inline-block;
+    width: 8em;
+    text-align: right;
+    padding-right: 0.25em;
+}
+
+.photo img {
+    margin: 1rem auto;
+    width: 100%;
+}
+
+.log:hover .meta {
+    display: block;
+    color: rgb(188, 188, 188);
+}
+
+.meta {
+    /*display: none;*/
+    font-size: 50%;
+    color: rgb(230, 230, 230);
+    user-select: none;
+    float: right;
+    /*position: absolute;*/
+    /*right: 1rem;*/
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+    -moz-user-select: none;
+}
+
+.me .content {
+    margin-left: 8em;
+}

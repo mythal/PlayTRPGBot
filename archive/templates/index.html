@@ -1,21 +1,28 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <title>Play TRPG</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
 <body>
 
-<h1>Play TRPG</h1>
-
-<ul>
-    {% for chat in chats %}
-        <li>
-            <div>
-                <a href="{% url 'logs' chat.id %}">{{ chat.title }}</a>
-            </div>
-        </li>
-    {% endfor %}
-</ul>
+<header>
+    <h1>Play TRPG</h1>
+    <a href="https://t.me/PlayTRPGBot">Telegram Bot</a>
+</header>
+<article>
+    <h2>Index</h2>
+    <ul>
+        {% for chat in chats %}
+            <li>
+                <div>
+                    <a href="{% url 'logs' chat.id %}">{{ chat.title }}</a>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+</article>
 </body>
 </html>

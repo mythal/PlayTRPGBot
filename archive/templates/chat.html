@@ -1,20 +1,45 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
     <title>{{ chat.title }}</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
 <body>
-<h1>{{ chat.title }}</h1>
-
-<div class="logs">
-    {% for log in logs %}
-        <div class="log">
-            {% if log.get_kind_display == 'NORMAL' %}
-                <span class="character">{{ log.character_name }}</span><span>{{ log.content | safe }}</span>
+<header>
+    <h1>{{ chat.title }}</h1>
+    <a href="/">Index</a>
+</header>
+<article class="logs">
+    <h2>Log</h2>
+    {% for log in logs %}{% with kind=log.get_kind_display %}
+        <p class="log {{ kind | lower }}" id="message-{{ log.message_id }}">
+            {% if kind == 'NORMAL' %}
+                <span class="character">{{ log.character_name }}:</span>
+                <span class="content">{{ log.content | safe }}</span>
+                {% if log.media %}
+                    <a href="{{ log.media.url }}" class="photo"><img alt="some photo in log" src="{{ log.media.url }}"></a>
+                {% endif %}
+            {% elif kind == 'HIDE_DICE' %}
+                <span class="character">{{ log.character_name }}</span><span class="dice">🎲</span>
+                <span class="content">暗骰</span>
+            {% elif kind == 'ROLL' %}
+                <span class="character">{{ log.character_name }}</span><span class="dice">🎲</span>
+                <span class="content">{{ log.content | safe }}</span>
+            {% elif kind == 'ME' %}
+                <span class="content">{{ log.content | safe }}</span>
+            {% else %}
+                <span class="content">未显示的内容</span>
             {% endif %}
-        </div>
-    {% endfor %}
-</div>
+            {% if log.reply %}
+                <span class="reply"><a href="#message-{{ log.message_id }}" title="{{ log.reply.content | striptags }}">reply</a></span>
+            {% endif %}
+            <small class="meta">
+                <time datetime="{{ log.created|date:"c" }}">{{ log.created|date:'y-m-d H:i:s' }}</time>
+            </small>
+        </p>
+    {% endwith %}{% endfor %}
+</article>
 </body>
 </html>
