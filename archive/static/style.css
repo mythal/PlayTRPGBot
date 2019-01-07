@@ -29,6 +29,13 @@ body {
     color: rgb(188, 188, 188);
 }
 
+code {
+    font-family: "Sarasa Mono SC", Iosevka, Menlo, "Bitstream Vera Sans Mono", Monaco, "Courier New", Courier, monospace;
+    display: inline-block;
+    padding: 0.2em;
+    background: rgba(128, 255, 0, 0.2);
+}
+
 .meta {
     /*display: none;*/
     font-size: 50%;
