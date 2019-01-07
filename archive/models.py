@@ -53,7 +53,3 @@ class Log(models.Model):
     def __str__(self):
         name = self.character_name or self.user_fullname or 'SYSTEM'
         return '{} - {} - {}'.format(self.chat.title, name, self.id)
-
-
-
-

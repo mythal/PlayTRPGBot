@@ -15,7 +15,7 @@ services:
   db:
     image: postgres
     ports:
-      - 5432:5432
+      - 127.0.0.1:5432:5432
     volumes:
       - ./data/db:/var/lib/postgresql/data
     restart: always
@@ -27,13 +27,13 @@ services:
     volumes:
       - ./data/redis:/data
     ports:
-      - 6379:6379
+      - 127.0.0.1:6379:6379
   bot:
     build: .
     command: python bot.py
     restart: always
     ports:
-      - 9990:9990
+      - 127.0.0.1:9990:9990
     depends_on:
       - db
       - redis

@@ -1,19 +1,20 @@
-import os
+import datetime
+import json
 import logging
+import os
 import re
 import secrets
-import json
 import uuid
-import telegram
-import datetime
-import django
-
-
 from typing import Optional
+
+import django
+import telegram
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+# from telegram.ext.dispatcher import run_async
 from redis import Redis
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import TelegramError
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 
 load_dotenv()
 django.setup()
@@ -51,7 +52,7 @@ def start(_, update):
     if not chat.recording:
         chat.recording = True
         chat.save()
-    message.chat.send_message('已重新开始记录，若需告一段落请使用 /save')
+    message.chat.send_message('已重新开始记录，输入 /save 告一段落')
 
 
 def save(_, update):
@@ -83,10 +84,6 @@ def eval_dice(counter, face) -> str:
     return '{}={}'.format(result_repr, sum(result))
 
 
-def save_username(chat_id, user_id, username: str):
-    redis.set('chat:{}:username:{}:id'.format(chat_id, username), user_id)
-
-
 def set_name(_, update: telegram.Update, args):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -95,8 +92,8 @@ def set_name(_, update: telegram.Update, args):
         return
     user = message.from_user
     assert isinstance(user, telegram.User)
-    name = ' '.join(args)
-    redis.set('chat:{}:user:{}:name'.format(message.chat_id, user.id), name.strip().encode())
+    name = ' '.join(args).strip()
+    redis.set('chat:{}:user:{}:name'.format(message.chat_id, user.id), name.encode())
     message.chat.send_message('{} 已被设为 {}'.format(user.full_name, name))
     message.delete()
 
@@ -154,13 +151,13 @@ def roll_text(chat_id, text):
     return DICE_REGEX.sub(repl, text)
 
 
-def look_hide_roll(bot: telegram.Bot, update):
+def look_hide_roll(_, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
     result = redis.get('roll:{}'.format(query.data))
     if result:
         data = json.loads(result)
-        if is_gm(bot, data['chat_id'], query.from_user.id):
+        if is_gm(data['chat_id'], query.from_user.id):
             text = data['text'].replace('<code>', '').replace('</code>', '')
         else:
             text = '你不是 GM，不能看哟'
@@ -173,7 +170,7 @@ def look_hide_roll(bot: telegram.Bot, update):
     )
 
 
-def handle_roll(bot, message: telegram.Message, name: str, text: str, hide=False):
+def handle_roll(message: telegram.Message, name: str, text: str, hide=False):
     result_text = roll_text(message.chat_id, text)
     kind = LogKind.ROLL.value
     if hide:
@@ -207,7 +204,7 @@ def handle_roll(bot, message: telegram.Message, name: str, text: str, hide=False
             content=result_text,
             user_fullname=user.full_name,
             character_name=name,
-            gm=is_gm(bot, message.chat_id, user.id),
+            gm=is_gm(message.chat_id, user.id),
             kind=kind,
             created=message.date,
         )
@@ -221,20 +218,23 @@ def is_author(message_id, user_id):
     return bool(Log.objects.filter(message_id=message_id, user_id=user_id).first())
 
 
+def get_name_by_username(chat_id, username):
+    name = redis.get('chat:{}:username:{}:name'.format(chat_id, username))
+    if name:
+        return name.decode()
+    else:
+        return None
+
+
 def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, text: str, edit_log=None):
     def name_resolve(match):
         username = match.group(1)
-        origin = '@{}'.format(username)
-        user_id = redis.get('chat:{}:username:{}:id'.format(message.chat_id, username))
-        if not user_id:
-            return origin
-        name_result = redis.get('chat:{}:user:{}:name'.format(message.chat_id, int(user_id)))
+        name_result = get_name_by_username(message.chat_id, username)
         if not name_result:
-            return origin
-        return '<b>{}</b>'.format(name_result.decode())
+            return '@{}'.format(username)
+        return '<b>{}</b>'.format(name_result)
 
     text = USERNAME_REGEX.sub(name_resolve, text)
-
     kind = LogKind.NORMAL.value
     if ME_REGEX.search(text):
         if ME_REGEX.sub('', text).strip() == '':
@@ -253,9 +253,8 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, te
     if edit_log is None:
         reply_to_message_id = None
         reply_log = None
-        if message.reply_to_message:
-            target = message.reply_to_message
-            assert isinstance(target, telegram.Message)
+        target = message.reply_to_message
+        if isinstance(target, telegram.Message):
             reply_to_message_id = target.message_id
             reply_log = Log.objects.filter(chat=chat, message_id=reply_to_message_id).first()
         sent = message.chat.send_message(
@@ -273,7 +272,7 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, te
                 reply=reply_log,
                 character_name=name,
                 content=content,
-                gm=is_gm(bot, message.chat.id, message.from_user.id),
+                gm=is_gm(message.chat.id, message.from_user.id),
                 created=message.date,
             )
     else:
@@ -285,18 +284,15 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, te
     message.delete()
 
 
-def handle_delete(bot, message: telegram.Message):
+def handle_delete(message: telegram.Message):
     target = message.reply_to_message
-    if not isinstance(target, telegram.Message):
-        message.delete()
-        return
-
-    user_id = message.from_user.id
-    log = Log.objects.filter(message_id=target.message_id).first()
-    if log and (log.user_id == user_id or is_gm(bot, message.chat_id, user_id)):
-        log.deleted = True
-        log.save()
-        target.delete()
+    if isinstance(target, telegram.Message):
+        user_id = message.from_user.id
+        log = Log.objects.filter(message_id=target.message_id).first()
+        if log and (log.user_id == user_id or is_gm(message.chat_id, user_id)):
+            log.deleted = True
+            log.save()
+            target.delete()
     message.delete()
 
 
@@ -306,35 +302,54 @@ def handle_edit(bot, chat, message: telegram.Message, text: str):
         message.delete()
         return
 
+    assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(message_id=target.message_id).first()
-    if log and log.user_id == user_id:
+    if isinstance(log, Log) and log.user_id == user_id:
         handle_say(bot, chat, message, log.character_name, text, edit_log=log)
 
     message.delete()
 
 
-def is_gm(bot: telegram.Bot, chat_id: int, user_id: int) -> bool:
-    result = redis.get('chat:{}:admins')
-    if not result:
-        for member in bot.get_chat_administrators(chat_id):
-            if member.user.id == user_id:
-                return True
-        return False
-    else:
-        admins = json.loads(result)
-        return user_id in admins
+def is_gm(chat_id: int, user_id: int) -> bool:
+    return redis.sismember('chat:{}:admin_set'.format(chat_id), user_id)
 
 
-def refresh(bot, update):
+def update_admin_job(bot, job):
+    chat_id = job.context
+    try:
+        administrators = bot.get_chat_administrators(chat_id)
+        user_id_list = [member.user.id for member in administrators]
+        admin_set_key = 'chat:{}:admin_set'.format(chat_id)
+        redis.delete(admin_set_key)
+        redis.sadd(admin_set_key, *user_id_list)
+    except TelegramError:
+        job.schedule_removal()
+        return
+
+
+def save_username(chat_id, username, name):
+    if username:
+        redis.set('chat:{}:username:{}:name'.format(chat_id, username), name)
+
+
+def run_chat_job(_, update, job_queue):
+    assert isinstance(job_queue, telegram.ext.JobQueue)
     if isinstance(update.message, telegram.Message):
         message = update.message
-        admins = json.dumps([member.user.id for member in bot.get_chat_administrators(message.chat_id)])
-        redis.set('chat:{}:admins'.format(message.chat_id), admins)
-        user = message.from_user
-        if isinstance(user, telegram.User):
-            if user.username:
-                redis.set('chat:{}:username:{}:id'.format(message.chat_id, user.username), user.id)
+        if message.chat.type != 'supergroup':
+            return
+        chat_id = message.chat_id
+        job_name = 'chat:{}'.format(chat_id)
+        job = job_queue.get_jobs_by_name(job_name)
+        if not job:
+            job_queue.run_repeating(
+                update_admin_job,
+                interval=8,
+                first=1,
+                context=chat_id,
+                name=job_name
+            )
 
 
 def handle_message(bot, update):
@@ -348,7 +363,8 @@ def handle_message(bot, update):
     elif message.chat.type != 'supergroup':
         message.reply_text('只能在超级群中使用我哦')
         return
-
+    elif not isinstance(message.from_user, telegram.User):
+        return
     command = message_match.group(1)
     chat = get_chat(message.chat)
     name = get_name(message)
@@ -358,20 +374,24 @@ def handle_message(bot, update):
     rest = text[message_match.end():]
 
     if command == 'r' or command == 'roll':
-        handle_roll(bot, message, name, rest)
+        handle_roll(message, name, rest)
     elif command == 'me':
         handle_say(bot, chat, message, name, text)
     elif command == '':
         handle_say(bot, chat, message, name, rest)
     elif command == 'del' or command == 'deleted':
-        handle_delete(bot, message)
+        handle_delete(message)
     elif command == 'edit':
         handle_edit(bot, chat, message, rest)
     elif command == 'hd':
-        handle_roll(bot, message, name, rest, hide=True)
+        handle_roll(message, name, rest, hide=True)
     else:
         message.reply_text('未知命令 `{}` 请使用 /help 查看可以用什么命令'.format(command))
-    refresh(bot, update)
+    save_username(chat.chat_id, message.from_user.username, name)
+
+
+def handle_photo(bot, update):
+    pass
 
 
 def error(_, update, bot_error):
@@ -407,8 +427,26 @@ def main():
     dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True))
     dp.add_handler(CommandHandler('name', set_name, pass_args=True))
 
-    # on otherwise i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text, handle_message))
+    dp.add_handler(MessageHandler(
+        Filters.text,
+        handle_message,
+        channel_post_updates=False,
+    ))
+    dp.add_handler(MessageHandler(
+        Filters.photo,
+        handle_photo,
+        channel_post_updates=False,
+    ))
+    # always execute `run_chat_job`.
+    dp.add_handler(
+        MessageHandler(
+            Filters.all,
+            run_chat_job,
+            channel_post_updates=False,
+            pass_job_queue=True,
+        ),
+        group=42
+    )
 
     updater.dispatcher.add_handler(CallbackQueryHandler(look_hide_roll))
     # log all errors
