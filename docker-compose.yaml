@@ -9,13 +9,11 @@ services:
     depends_on:
       - db
     ports:
-      - "8880:8880"
+      - "127.0.0.1:8880:8880"
     environment:
       - PYTHONPATH=/code
   db:
     image: postgres
-    ports:
-      - 127.0.0.1:5432:5432
     volumes:
       - ./data/db:/var/lib/postgresql/data
     restart: always
@@ -26,14 +24,12 @@ services:
     restart: always
     volumes:
       - ./data/redis:/data
-    ports:
-      - 127.0.0.1:6379:6379
   bot:
     build: .
     command: python bot.py
     restart: always
     ports:
-      - 127.0.0.1:9990:9990
+      - "127.0.0.1:9990:9990"
     depends_on:
       - db
       - redis
