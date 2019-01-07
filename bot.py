@@ -1,4 +1,5 @@
 import datetime
+import io
 import json
 import logging
 import os
@@ -226,7 +227,8 @@ def get_name_by_username(chat_id, username):
         return None
 
 
-def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, text: str, edit_log=None):
+def handle_say(bot: telegram.Bot, chat, message: telegram.Message,
+               name: str, text: str, edit_log=None, with_photo=None):
     def name_resolve(match):
         username = match.group(1)
         name_result = get_name_by_username(message.chat_id, username)
@@ -257,13 +259,21 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, te
         if isinstance(target, telegram.Message):
             reply_to_message_id = target.message_id
             reply_log = Log.objects.filter(chat=chat, message_id=reply_to_message_id).first()
-        sent = message.chat.send_message(
-            send_text,
-            reply_to_message_id=reply_to_message_id,
-            parse_mode='HTML'
-        )
+        if isinstance(with_photo, telegram.PhotoSize):
+            sent = message.chat.send_photo(
+                photo=with_photo,
+                caption=send_text,
+                reply_to_message_id=reply_to_message_id,
+                parse_mode='HTML',
+            )
+        else:
+            sent = message.chat.send_message(
+                send_text,
+                reply_to_message_id=reply_to_message_id,
+                parse_mode='HTML',
+            )
         if chat.recording:
-            Log.objects.create(
+            created_log = Log.objects.create(
                 message_id=sent.message_id,
                 chat=chat,
                 user_id=message.from_user.id,
@@ -275,6 +285,11 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message, name: str, te
                 gm=is_gm(message.chat.id, message.from_user.id),
                 created=message.date,
             )
+            if isinstance(with_photo, telegram.PhotoSize):
+                created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
+                media = created_log.media.open('rb+')
+                with_photo.get_file().download(out=media)
+                media.close()
     else:
         assert isinstance(edit_log, Log)
         edit_log.content = content
@@ -352,11 +367,12 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-def handle_message(bot, update):
+def handle_message(bot, update, with_photo=None):
     message = update.message
     assert isinstance(message, telegram.Message)
     text = message.text
-    assert isinstance(text, str)
+    if not isinstance(text, str):
+        return
     message_match = re.match(r'^[.。](\w*)\s*', text)
     if not message_match:
         return
@@ -376,9 +392,9 @@ def handle_message(bot, update):
     if command == 'r' or command == 'roll':
         handle_roll(message, name, rest)
     elif command == 'me':
-        handle_say(bot, chat, message, name, text)
+        handle_say(bot, chat, message, name, text, with_photo=with_photo)
     elif command == '':
-        handle_say(bot, chat, message, name, rest)
+        handle_say(bot, chat, message, name, rest, with_photo=with_photo)
     elif command == 'del' or command == 'deleted':
         handle_delete(message)
     elif command == 'edit':
@@ -391,7 +407,17 @@ def handle_message(bot, update):
 
 
 def handle_photo(bot, update):
-    pass
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    user = message.from_user
+    assert isinstance(user, telegram.User)
+    photo_size_list = message.photo
+    if len(photo_size_list) == 0:
+        return
+    photo_size_list.sort(key=lambda p: p.file_size)
+    message.text = message.caption
+    message.entities = message.caption_entities
+    handle_message(bot, update, with_photo=photo_size_list[-1])
 
 
 def error(_, update, bot_error):
