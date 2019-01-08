@@ -5,5 +5,5 @@ python manage.py collectstatic --noinput
 if [[ -z "${DEBUG}" ]]; then
     uwsgi --ini deploy/uwsgi.ini
 else
-    python manage.py runserver 8880
+    python manage.py runserver 0.0.0.0:8880
 fi
