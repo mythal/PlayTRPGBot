@@ -4,3 +4,4 @@ python-telegram-bot
 psycopg2-binary
 redis
 uwsgi
+django-redis-cache

@@ -44,6 +44,27 @@ INSTALLED_APPS = [
 
 ]
 
+CACHES = {
+    'default': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': [
+            'redis:6379',
+        ],
+        'OPTIONS': {
+            'DB': 1,
+            'PASSWORD': '',
+            'PARSER_CLASS': 'redis.connection.HiredisParser',
+            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'timeout': 20,
+            },
+            'MAX_CONNECTIONS': 1000,
+            'PICKLE_VERSION': -1,
+        },
+    },
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
