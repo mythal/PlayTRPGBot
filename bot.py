@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, JobQueue
 
 load_dotenv()
 django.setup()
@@ -227,6 +227,22 @@ def get_name_by_username(chat_id, username):
         return None
 
 
+def delete_error_message(bot: telegram.Bot, job):
+    chat_id = job.context['chat_id']
+    for message_id in job.context['message_id_list']:
+        bot.delete_message(chat_id, message_id)
+
+
+def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
+    delete_time = 15
+    sent = message.reply_text('<b>[ERROR]</b> {}'.format(text), parse_mode='HTML')
+    context = dict(
+        chat_id=message.chat_id,
+        message_id_list=(message.message_id, sent.message_id),
+    )
+    job_queue.run_once(delete_error_message, delete_time, context=context)
+
+
 def handle_say(bot: telegram.Bot, chat, message: telegram.Message,
                name: str, text: str, edit_log=None, with_photo=None):
     def name_resolve(match):
@@ -299,31 +315,39 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message,
     message.delete()
 
 
-def handle_delete(message: telegram.Message):
+def handle_delete(message: telegram.Message, job_queue):
     target = message.reply_to_message
     if isinstance(target, telegram.Message):
         user_id = message.from_user.id
         log = Log.objects.filter(message_id=target.message_id).first()
-        if log and (log.user_id == user_id or is_gm(message.chat_id, user_id)):
+        if log is None:
+            error_message(message, job_queue, '这条记录不存在于数据库')
+        elif log.user_id == user_id or is_gm(message.chat_id, user_id):
             log.deleted = True
             log.save()
             target.delete()
-    message.delete()
+            message.delete()
+        else:
+            error_message(message, job_queue, '你没有删掉这条记录的权限')
+    else:
+        error_message(message, job_queue, '回复需要删除的记录')
 
 
-def handle_edit(bot, chat, message: telegram.Message, text: str):
+def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
     target = message.reply_to_message
     if not isinstance(target, telegram.Message):
-        message.delete()
-        return
+        return error_message(message, job_queue, '回复需要编辑的记录')
 
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(message_id=target.message_id).first()
-    if isinstance(log, Log) and log.user_id == user_id:
+    if log is None:
+        error_message(message, job_queue, '这条记录不存在于数据库')
+    elif log.user_id == user_id:
         handle_say(bot, chat, message, log.character_name, text, edit_log=log)
-
-    message.delete()
+        message.delete()
+    else:
+        error_message(message, job_queue, '你没有删除这条记录的权限')
 
 
 def is_gm(chat_id: int, user_id: int) -> bool:
@@ -367,7 +391,7 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-def handle_message(bot, update, with_photo=None):
+def handle_message(bot, update, job_queue, with_photo=None):
     message = update.message
     assert isinstance(message, telegram.Message)
     if with_photo:
@@ -388,7 +412,7 @@ def handle_message(bot, update, with_photo=None):
     chat = get_chat(message.chat)
     name = get_name(message)
     if not name:
-        message.reply_text('请先使用 `/name [你的角色名]` 设置角色名')
+        error_message(message, job_queue, '请先使用 <code>/name [你的角色名]</code> 设置角色名')
         return
     rest = text[message_match.end():]
 
@@ -399,13 +423,13 @@ def handle_message(bot, update, with_photo=None):
     elif command == '':
         handle_say(bot, chat, message, name, rest, with_photo=with_photo)
     elif command == 'del' or command == 'deleted':
-        handle_delete(message)
+        handle_delete(message, job_queue)
     elif command == 'edit':
-        handle_edit(bot, chat, message, rest)
+        handle_edit(bot, chat, job_queue, message, rest)
     elif command == 'hd':
         handle_roll(message, name, rest, hide=True)
     else:
-        message.reply_text('未知命令 `{}` 请使用 /help 查看可以用什么命令'.format(command))
+        error_message(message, job_queue, '未知命令 `{}` 请使用 /help 查看可以用什么命令'.format(command))
     save_username(chat.chat_id, message.from_user.username, name)
 
 
@@ -458,6 +482,7 @@ def main():
         Filters.text,
         handle_message,
         channel_post_updates=False,
+        pass_job_queue=True,
     ))
     dp.add_handler(MessageHandler(
         Filters.photo,
