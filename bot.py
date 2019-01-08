@@ -42,7 +42,7 @@ help_file.close()
 start_file.close()
 
 
-def start(_, update):
+def start(_, update, job_queue):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -53,19 +53,24 @@ def start(_, update):
     if not chat.recording:
         chat.recording = True
         chat.save()
-    message.chat.send_message('已重新开始记录，输入 /save 告一段落')
+        message.chat.send_message('已重新开始记录，输入 /save 告一段落')
+    else:
+        error_message(message, job_queue, '已经正在记录了')
 
 
-def save(_, update):
+def save(_, update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     if message.chat.type != 'supergroup':
         return
     chat = get_chat(message.chat)
-    chat.recording = False
-    chat.save_date = datetime.datetime.now()
-    chat.save()
-    message.chat.send_message('告一段落，在 /start 前我不会再记录')
+    if chat.recording:
+        chat.recording = False
+        chat.save_date = datetime.datetime.now()
+        chat.save()
+        message.chat.send_message('告一段落，在 /start 前我不会再记录')
+    else:
+        error_message(message, job_queue, '已经停止记录了')
 
 
 def bot_help(_, update):
@@ -85,12 +90,11 @@ def eval_dice(counter, face) -> str:
     return '{}={}'.format(result_repr, sum(result))
 
 
-def set_name(_, update: telegram.Update, args):
+def set_name(_, update: telegram.Update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     if len(args) == 0:
-        message.reply_text('请在 /name 后写下你的角色名')
-        return
+        return error_message(message, job_queue, '请在 /name 后写下你的角色名')
     user = message.from_user
     assert isinstance(user, telegram.User)
     name = ' '.join(args).strip()
@@ -108,19 +112,20 @@ def get_name(message: telegram.Message) -> Optional[str]:
         return None
 
 
-def set_dice_face(_, update, args):
+def set_dice_face(_, update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     if len(args) != 1:
-        message.reply_text(
+        return error_message(
+            message,
+            job_queue,
             '需要（且仅需要）指定骰子的默认面数，'
-            '目前为 <b>{}</b>'.format(get_default_dice_face(chat_id=message.chat_id)),
-            parse_mode='HTML'
+            '目前为 <b>{}</b>'.format(get_default_dice_face(chat_id=message.chat_id))
         )
     try:
         face = int(args[0])
     except ValueError:
-        message.reply_text('面数只能是数字')
+        error_message(message, job_queue, '面数只能是数字')
         return
     redis.set('chat:{}:face'.format(message.chat_id), face)
 
@@ -442,7 +447,7 @@ def handle_message(bot, update, job_queue, with_photo=None):
     save_username(chat.chat_id, message.from_user.username, name)
 
 
-def handle_photo(bot, update):
+def handle_photo(bot, update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     user = message.from_user
@@ -451,7 +456,7 @@ def handle_photo(bot, update):
     if len(photo_size_list) == 0:
         return
     photo_size_list.sort(key=lambda p: p.file_size)
-    handle_message(bot, update, with_photo=photo_size_list[-1])
+    handle_message(bot, update, with_photo=photo_size_list[-1], job_queue=job_queue)
 
 
 def error(_, update, bot_error):
@@ -481,11 +486,11 @@ def main():
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("save", save))
+    dp.add_handler(CommandHandler("start", start, pass_job_queue=True))
+    dp.add_handler(CommandHandler("save", save, pass_job_queue=True))
     dp.add_handler(CommandHandler("help", bot_help))
-    dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True))
-    dp.add_handler(CommandHandler('name', set_name, pass_args=True))
+    dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True, pass_job_queue=True))
+    dp.add_handler(CommandHandler('name', set_name, pass_args=True, pass_job_queue=True))
 
     dp.add_handler(MessageHandler(
         Filters.text,
@@ -497,6 +502,7 @@ def main():
         Filters.photo,
         handle_photo,
         channel_post_updates=False,
+        pass_job_queue=True,
     ))
     # always execute `run_chat_job`.
     dp.add_handler(
