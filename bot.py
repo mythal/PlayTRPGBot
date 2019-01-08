@@ -1,8 +1,8 @@
 import datetime
 import io
-import json
 import logging
 import os
+import pickle
 import re
 import secrets
 import uuid
@@ -157,7 +157,7 @@ def look_hide_roll(_, update):
     assert isinstance(query, telegram.CallbackQuery)
     result = redis.get('roll:{}'.format(query.data))
     if result:
-        data = json.loads(result)
+        data = pickle.loads(result)
         if is_gm(data['chat_id'], query.from_user.id):
             text = data['text'].replace('<code>', '').replace('</code>', '')
         else:
@@ -176,7 +176,7 @@ def handle_roll(message: telegram.Message, name: str, text: str, hide=False):
     kind = LogKind.ROLL.value
     if hide:
         roll_id = str(uuid.uuid4())
-        redis.set('roll:{}'.format(roll_id), json.dumps({
+        redis.set('roll:{}'.format(roll_id), pickle.dumps({
             'text': result_text,
             'chat_id': message.chat_id,
         }))
