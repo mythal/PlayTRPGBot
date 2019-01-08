@@ -16,7 +16,8 @@
     {% for log in logs %}{% with kind=log.get_kind_display %}
         <p class="log {{ kind | lower }}" id="message-{{ log.message_id }}">
             {% if kind == 'NORMAL' %}
-                <span class="character">{{ log.character_name }}:</span><span class="content">{{ log.content | safe }}</span>
+                <span class="character">{{ log.character_name }}:</span>
+                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
                 {% if log.media %}
                     <a href="{{ log.media.url }}" class="photo"><img alt="some photo in log" src="{{ log.media.url }}"></a>
                 {% endif %}
@@ -25,9 +26,9 @@
                 <span class="content">暗骰</span>
             {% elif kind == 'ROLL' %}
                 <span class="character">{{ log.character_name }}</span><span class="dice">🎲</span>
-                <span class="content">{{ log.content | safe }}</span>
+                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
             {% elif kind == 'ME' %}
-                <span class="content">{{ log.content | safe }}</span>
+                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
             {% else %}
                 <span class="content">未显示的内容</span>
             {% endif %}
