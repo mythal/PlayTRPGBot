@@ -171,7 +171,10 @@ def look_hide_roll(_, update):
     )
 
 
-def handle_roll(message: telegram.Message, name: str, text: str, hide=False):
+def handle_roll(message: telegram.Message, name: str, text: str,
+                job_queue: JobQueue, hide=False):
+    if text.strip() == '':
+        text = 'd'
     result_text = roll_text(message.chat_id, text)
     kind = LogKind.ROLL.value
     if hide:
@@ -209,6 +212,11 @@ def handle_roll(message: telegram.Message, name: str, text: str, hide=False):
             kind=kind,
             created=message.date,
         )
+    context = dict(
+        chat_id=message.chat_id,
+        message_id_list=[message.message_id]
+    )
+    job_queue.run_once(delay_delete_messages, 10, context)
 
 
 ME_REGEX = re.compile(r'^[.。]me\b|\s[.。]me\s?')
@@ -227,7 +235,7 @@ def get_name_by_username(chat_id, username):
         return None
 
 
-def delete_error_message(bot: telegram.Bot, job):
+def delay_delete_messages(bot: telegram.Bot, job):
     chat_id = job.context['chat_id']
     for message_id in job.context['message_id_list']:
         bot.delete_message(chat_id, message_id)
@@ -240,10 +248,10 @@ def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
         chat_id=message.chat_id,
         message_id_list=(message.message_id, sent.message_id),
     )
-    job_queue.run_once(delete_error_message, delete_time, context=context)
+    job_queue.run_once(delay_delete_messages, delete_time, context=context)
 
 
-def handle_say(bot: telegram.Bot, chat, message: telegram.Message,
+def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                name: str, text: str, edit_log=None, with_photo=None):
     def name_resolve(match):
         username = match.group(1)
@@ -256,13 +264,13 @@ def handle_say(bot: telegram.Bot, chat, message: telegram.Message,
     kind = LogKind.NORMAL.value
     if ME_REGEX.search(text):
         if ME_REGEX.sub('', text).strip() == '':
-            message.delete()
+            error_message(message, job_queue, '不能有空消息')
             return
         send_text = ME_REGEX.sub('<b>{}</b>'.format(name), text)
         content = send_text
         kind = LogKind.ME.value
     elif text.strip() == '':
-        message.delete()
+        error_message(message, job_queue, '不能有空消息')
         return
     else:
         send_text = '<b>{}</b>: {}'.format(name, text)
@@ -344,7 +352,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
     if log is None:
         error_message(message, job_queue, '这条记录不存在于数据库')
     elif log.user_id == user_id:
-        handle_say(bot, chat, message, log.character_name, text, edit_log=log)
+        handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
         message.delete()
     else:
         error_message(message, job_queue, '你没有删除这条记录的权限')
@@ -391,6 +399,9 @@ def run_chat_job(_, update, job_queue):
             )
 
 
+COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd)?\s*')
+
+
 def handle_message(bot, update, job_queue, with_photo=None):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -400,7 +411,7 @@ def handle_message(bot, update, job_queue, with_photo=None):
         text = message.text_html_urled
     if not isinstance(text, str):
         return
-    message_match = re.match(r'^[.。](\w*)\s*', text)
+    message_match = COMMAND_REGEX.match(text)
     if not message_match:
         return
     elif message.chat.type != 'supergroup':
@@ -417,19 +428,17 @@ def handle_message(bot, update, job_queue, with_photo=None):
     rest = text[message_match.end():]
 
     if command == 'r' or command == 'roll':
-        handle_roll(message, name, rest)
+        handle_roll(message, name, rest, job_queue)
     elif command == 'me':
-        handle_say(bot, chat, message, name, text, with_photo=with_photo)
-    elif command == '':
-        handle_say(bot, chat, message, name, rest, with_photo=with_photo)
-    elif command == 'del' or command == 'deleted':
+        handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
+    elif command == 'del' or command == 'delete':
         handle_delete(message, job_queue)
     elif command == 'edit':
         handle_edit(bot, chat, job_queue, message, rest)
     elif command == 'hd':
-        handle_roll(message, name, rest, hide=True)
+        handle_roll(message, name, rest, job_queue, hide=True)
     else:
-        error_message(message, job_queue, '未知命令 `{}` 请使用 /help 查看可以用什么命令'.format(command))
+        handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
 
 
