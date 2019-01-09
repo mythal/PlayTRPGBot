@@ -6,50 +6,64 @@
 
 body {
     font-size: 16px;
-    max-width: 40rem;
+    max-width: 50rem;
     margin: 2rem auto;
     font-family: "Roboto", "Lucida Grande", "DejaVu Sans", "Bitstream Vera Sans", Verdana, Arial, sans-serif;
 }
 
-
-.character {
-    display: inline-block;
-    width: 8em;
-    text-align: right;
-    padding-right: 0.25em;
+img {
+    max-width: 100%;
 }
 
-.photo img {
-    margin: 1rem auto;
-    width: 100%;
-}
-
-.log:hover .meta {
-    display: block;
-    color: rgb(188, 188, 188);
-}
 
 code {
     font-family: "Sarasa Mono SC", Iosevka, Menlo, "Bitstream Vera Sans Mono", Monaco, "Courier New", Courier, monospace;
-    display: inline-block;
     padding: 0.2em;
-    background: rgba(128, 255, 0, 0.2);
+    background: rgb(153, 255, 230);
+    border: 1px solid rgb(111, 194, 157);
 }
+
+#logs > table {
+    width: 100%;
+}
+
 
 .meta {
-    /*display: none;*/
-    font-size: 50%;
-    color: rgb(230, 230, 230);
-    user-select: none;
-    float: right;
-    /*position: absolute;*/
-    /*right: 1rem;*/
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    -webkit-touch-callout: none;
-    -moz-user-select: none;
+    width: 12em;
+    font-size: 12px;
+    text-align: right;
+    color: rgb(172, 172, 172);
 }
 
-.me .content {
-    margin-left: 8em;
+.character {
+    min-width: 6rem;
+    text-align: right;
+}
+
+
+.gm .character {
+    background-color: #6bffdd;
+}
+
+.content {
+    font-size: 120%;
+}
+
+.content b {
+    font-style: italic;
+    font-weight: bold;
+}
+
+body > header {
+    text-align: center;
+}
+
+body > footer {
+    text-align: center;
+    font-size: 14px;
+}
+
+.highlight {
+    background: #a4d8ed;
+    transition: 0.5s;
 }

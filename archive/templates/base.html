@@ -1,0 +1,16 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/>
+</head>
+<body>
+<header id="page_header">{% block header %}{% endblock %}</header>
+{% block main %}
+{% endblock %}
+<footer id="page_footer">Telegram Bot: <a href="https://t.me/PlayTRPGBot">@PlayTRPGBot</a></footer>
+</body>
+</html>

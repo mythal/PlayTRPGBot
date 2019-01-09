@@ -1,17 +1,7 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <title>Play TRPG</title>
-    <link rel="stylesheet" href="{% static 'style.css' %}">
-</head>
-<body>
-
-<header>
-    <h1>Play TRPG</h1>
-    <a href="https://t.me/PlayTRPGBot">Telegram Bot</a>
-</header>
+{% extends 'base.html' %}
+{% block title %}PlayTRPG{% endblock %}
+{% block header %}<h1>PlayTRPG</h1>{% endblock %}
+{% block main %}
 <article>
     <h2>Index</h2>
     <ul>
@@ -24,5 +14,4 @@
         {% endfor %}
     </ul>
 </article>
-</body>
-</html>
+{% endblock %}

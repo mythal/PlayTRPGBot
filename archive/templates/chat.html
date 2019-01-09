@@ -1,45 +1,60 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ chat.title }}</title>
-    <link rel="stylesheet" href="{% static 'style.css' %}">
-</head>
-<body>
-<header>
+{% extends 'base.html' %}
+{% block title %}{{ chat.title }} - PlayTRPG{% endblock %}
+{% block header %}
     <h1>{{ chat.title }}</h1>
-    <a href="/">Index</a>
-</header>
-<article class="logs">
+    <a href="/">⇐ Home</a>
+{% endblock %}
+{% block main %}
+
+    <article id="logs">
     <h2>Log</h2>
+        <table>
+            <tbody>
     {% for log in logs %}{% with kind=log.get_kind_display %}
-        <p class="log {{ kind | lower }}" id="message-{{ log.message_id }}">
+        <tr class="log {{ kind | lower }}{% if log.gm %} gm{% endif %}" id="message-{{ log.message_id }}">
             {% if kind == 'NORMAL' %}
-                <span class="character">{{ log.character_name }}:</span>
-                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
-                {% if log.media %}
-                    <a href="{{ log.media.url }}" class="photo"><img alt="some photo in log" src="{{ log.media.url }}"></a>
-                {% endif %}
+                <td class="character">{{ log.character_name }}:</td>
+                <td class="content">
+                    {{ log.content |safe|linebreaksbr }}
+                    {% if log.media %}
+                        <a href="{{ log.media.url }}" class="photo"><img alt="some photo in log"
+                                                                         src="{{ log.media.url }}"></a>
+                    {% endif %}
+                </td>
             {% elif kind == 'HIDE_DICE' %}
-                <span class="character">{{ log.character_name }}</span><span class="dice">🎲</span>
-                <span class="content">暗骰</span>
+                <td class="character">{{ log.character_name }}</td>
+                <td class="content"><span class="dice">🎲</span> <span class="roll-text">暗骰</span></td>
             {% elif kind == 'ROLL' %}
-                <span class="character">{{ log.character_name }}</span><span class="dice">🎲</span>
-                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
+                <td class="character">{{ log.character_name }}</td>
+                <td class="content"><span class="dice">🎲</span> <span
+                        class="roll-text">{{ log.content |safe|linebreaksbr }}</span></td>
             {% elif kind == 'ME' %}
-                <span class="content">{{ log.content |safe|linebreaksbr }}</span>
+                <td></td>
+                <td class="content">{{ log.content |safe|linebreaksbr }}</td>
             {% else %}
-                <span class="content">未显示的内容</span>
+                <td colspan="2" class="content"><p>未显示的内容</p></td>
             {% endif %}
-            {% if log.reply %}
-                <span class="reply"><a href="#message-{{ log.message_id }}" title="{{ log.reply.content | striptags }}">reply</a></span>
-            {% endif %}
-            <small class="meta">
+            <td class="meta">
                 <time datetime="{{ log.created|date:"c" }}">{{ log.created|date:'y-m-d H:i:s' }}</time>
-            </small>
-        </p>
+                {% if log.reply %}
+                    <span class="reply"><a href="#message-{{ log.reply.message_id }}"
+                                           title="{{ log.reply.content | striptags }}">reply</a></span>
+                {% endif %}
+            </td>
+        </tr>
     {% endwith %}{% endfor %}
+            </tbody>
+        </table>
 </article>
-</body>
-</html>
+    <script>
+        let reply_list = document.querySelectorAll('.reply a');
+
+        function highlight() {
+            document.querySelector(this.getAttribute('href')).className += ' highlight';
+        }
+
+        for (let i = 0; i < reply_list.length; i++) {
+            reply_list[i].addEventListener('click', highlight);
+        }
+    </script>
+{% endblock %}
