@@ -4,7 +4,6 @@ import logging
 import os
 import pickle
 import re
-import secrets
 import uuid
 from typing import Optional
 
@@ -16,6 +15,8 @@ from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, JobQueue
+
+import dice
 
 load_dotenv()
 django.setup()
@@ -78,18 +79,6 @@ def bot_help(_, update):
     update.message.reply_text(HELP_TEXT, parse_mode='Markdown')
 
 
-def eval_dice(counter, face) -> str:
-    if counter > 0x100:
-        return 'too much dice'
-    elif face > 0x1000:
-        return 'too much dice face'
-    result = [secrets.randbelow(face) + 1 for _ in range(counter)]
-    result_repr = '[...]'
-    if len(result) < 0x10:
-        result_repr = repr(result)
-    return '{}={}'.format(result_repr, sum(result))
-
-
 def set_name(_, update: telegram.Update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -137,24 +126,9 @@ def get_default_dice_face(chat_id) -> int:
         return DEFAULT_FACE
 
 
-DICE_REGEX = re.compile(r'\b(\d*)d(\d*)([+\-*]?)(\d*)\b')
-
-
 def roll_text(chat_id, text):
-    def repl(match):
-        counter = match.group(1)
-        face = match.group(2)
-        if counter == '':
-            counter = 1
-        if face == '':
-            face = get_default_dice_face(chat_id)
-        counter = int(counter)
-        face = int(face)
-        return '<code>{}d{}={}</code>'.format(
-            counter, face,
-            eval_dice(counter, face)
-        )
-    return DICE_REGEX.sub(repl, text)
+    _, text = dice.roll(text, get_default_dice_face(chat_id))
+    return '<code>{}</code>'.format(text)
 
 
 def look_hide_roll(_, update):
@@ -180,7 +154,10 @@ def handle_roll(message: telegram.Message, name: str, text: str,
                 job_queue: JobQueue, hide=False):
     if text.strip() == '':
         text = 'd'
-    result_text = roll_text(message.chat_id, text)
+    try:
+        result_text = roll_text(message.chat_id, text)
+    except dice.RollError as e:
+        return error_message(message, job_queue, e.args[0])
     kind = LogKind.ROLL.value
     if hide:
         roll_id = str(uuid.uuid4())

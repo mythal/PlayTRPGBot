@@ -5,3 +5,4 @@ psycopg2-binary
 redis
 uwsgi
 django-redis-cache
+pypeg2
