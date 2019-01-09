@@ -31,6 +31,7 @@ redis = Redis(host='redis', port=6379, db=0)
 DEFAULT_FACE = 100
 BUFFER_TIME = 20
 TOKEN = os.environ['BOT_TOKEN']
+GM_SYMBOL = '✧'
 
 logger = logging.getLogger(__name__)
 
@@ -233,8 +234,23 @@ def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
     job_queue.run_once(delay_delete_messages, delete_time, context=context)
 
 
+def get_symbol(chat_id, user_id) -> str:
+    symbol = ''
+    if is_gm(chat_id, user_id):
+        symbol = GM_SYMBOL
+    return symbol + ' '
+
+
+def is_empty_message(text):
+    return ME_REGEX.sub('', text).strip() == ''
+
+
 def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                name: str, text: str, edit_log=None, with_photo=None):
+    user_id = message.from_user.id
+    gm = is_gm(message.chat_id, user_id)
+
+    # process input text
     def name_resolve(match):
         username = match.group(1)
         name_result = get_name_by_username(message.chat_id, username)
@@ -244,64 +260,70 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
 
     text = USERNAME_REGEX.sub(name_resolve, text)
     kind = LogKind.NORMAL.value
-    if ME_REGEX.search(text):
-        if ME_REGEX.sub('', text).strip() == '':
-            error_message(message, job_queue, '不能有空消息')
-            return
+
+    if is_empty_message(text):
+        error_message(message, job_queue, '不能有空消息')
+        return
+    elif ME_REGEX.search(text):
         send_text = ME_REGEX.sub('<b>{}</b>'.format(name), text)
         content = send_text
         kind = LogKind.ME.value
-    elif text.strip() == '':
-        error_message(message, job_queue, '不能有空消息')
-        return
     else:
         send_text = '<b>{}</b>: {}'.format(name, text)
         content = text
-
-    if edit_log is None:
-        reply_to_message_id = None
-        reply_log = None
-        target = message.reply_to_message
-        if isinstance(target, telegram.Message):
-            reply_to_message_id = target.message_id
-            reply_log = Log.objects.filter(chat=chat, message_id=reply_to_message_id).first()
-        if isinstance(with_photo, telegram.PhotoSize):
-            sent = message.chat.send_photo(
-                photo=with_photo,
-                caption=send_text,
-                reply_to_message_id=reply_to_message_id,
-                parse_mode='HTML',
-            )
-        else:
-            sent = message.chat.send_message(
-                send_text,
-                reply_to_message_id=reply_to_message_id,
-                parse_mode='HTML',
-            )
-        if chat.recording:
-            created_log = Log.objects.create(
-                message_id=sent.message_id,
-                chat=chat,
-                user_id=message.from_user.id,
-                user_fullname=message.from_user.full_name,
-                kind=kind,
-                reply=reply_log,
-                character_name=name,
-                content=content,
-                gm=is_gm(message.chat.id, message.from_user.id),
-                created=message.date,
-            )
-            if isinstance(with_photo, telegram.PhotoSize):
-                created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
-                media = created_log.media.open('rb+')
-                with_photo.get_file().download(out=media)
-                media.close()
-    else:
+    symbol = get_symbol(message.chat_id, user_id)
+    send_text = symbol + send_text
+    # on edit
+    if edit_log:
         assert isinstance(edit_log, Log)
         edit_log.content = content
         edit_log.kind = kind
         edit_log.save()
         bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
+        message.delete()
+        return
+
+    # send message or photo
+    reply_to_message_id = None
+    reply_log = None
+    target = message.reply_to_message
+    if isinstance(target, telegram.Message):
+        reply_to_message_id = target.message_id
+        reply_log = Log.objects.filter(chat=chat, message_id=reply_to_message_id).first()
+    if isinstance(with_photo, telegram.PhotoSize):
+        sent = message.chat.send_photo(
+            photo=with_photo,
+            caption=send_text,
+            reply_to_message_id=reply_to_message_id,
+            parse_mode='HTML',
+        )
+    else:
+        sent = message.chat.send_message(
+            send_text,
+            reply_to_message_id=reply_to_message_id,
+            parse_mode='HTML',
+        )
+
+    if chat.recording:
+        # record log
+        created_log = Log.objects.create(
+            message_id=sent.message_id,
+            chat=chat,
+            user_id=user_id,
+            user_fullname=message.from_user.full_name,
+            kind=kind,
+            reply=reply_log,
+            character_name=name,
+            content=content,
+            gm=gm,
+            created=message.date,
+        )
+        # download and write photo file
+        if isinstance(with_photo, telegram.PhotoSize):
+            created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
+            media = created_log.media.open('rb+')
+            with_photo.get_file().download(out=media)
+            media.close()
     message.delete()
 
 
