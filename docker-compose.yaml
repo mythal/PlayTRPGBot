@@ -38,3 +38,11 @@ services:
       - .env
     volumes:
       - .:/code
+  touzi:
+    build: .
+    command: python touzi_bot.py
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - .:/code

@@ -3,4 +3,4 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir /code
 WORKDIR /code
 ADD requirements.txt /code/
-RUN pip install -r requirements.txt -i https://pypi.mirrors.ustc.edu.cn/simple
+RUN pip install -r requirements.txt
