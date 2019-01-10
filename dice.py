@@ -122,9 +122,9 @@ class Expr(List):
                     raise RollError('要知道，0 不能做除数')
                 else:
                     value_list[i + 1] = a // b
-                value_list[i] = Add('+')
-                value_list[i - 1] = 0
-
+                value_list[i] = None
+                value_list[i - 1] = None
+        value_list = list(filter(lambda x: x is not None, value_list))
         result = value_list[0]
         for i, current in enumerate(value_list):
             if isinstance(current, Add):
