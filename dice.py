@@ -163,7 +163,7 @@ class Roll(List):
         if expr_count == 0:
             value, text = parse('1d', Dice).eval(env)
             result_value = sum(value)
-            result_text.insert(0, '<code>{}<code>'.format(text))
+            result_text.insert(0, '<code>{}</code>'.format(text))
         return result_value, ' '.join(result_text)
 
 
