@@ -129,7 +129,7 @@ def get_default_dice_face(chat_id) -> int:
 
 def roll_text(chat_id, text):
     _, text = dice.roll(text, get_default_dice_face(chat_id))
-    return '<code>{}</code>'.format(text)
+    return text
 
 
 def look_hide_roll(_, update):

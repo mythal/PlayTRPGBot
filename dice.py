@@ -66,10 +66,12 @@ class Dice:
         else:
             result = [secrets.randbelow(face) + 1 for _ in range(counter)]
         if len(result) > 6:
-            result_text = '{...}'
+            result_text = '={...}'
+        elif counter < 2:
+            result_text = ''
         else:
-            result_text = '{{{}}}'.format(', '.join(map(str, result)))
-        show = '{}d{}={}'.format(counter, face, result_text)
+            result_text = '={{{}}}'.format(', '.join(map(str, result)))
+        show = '{}d{}{}'.format(counter, face, result_text)
         if show_sum:
             show += '={}'.format(sum(result))
         return result, show
@@ -140,16 +142,29 @@ class Expr(List):
 
 
 item = [Dice, Number, Max, Min, ('(', Expr, ')')]
-# item = [Dice, Number, Max, Min]
-Expr.grammar = item, maybe_some(optional(operator), item)
+Expr.grammar = (item, maybe_some(operator, item))
 
 
-class Roll:
-    grammar = attr('expr', Expr), attr('rest', re.compile(r'.*'))
+class Roll(List):
+    grammar = maybe_some([Expr, re.compile(r'\S+')])
 
     def eval(self, env):
-        value, text = self.expr.eval(env)
-        return value, '{}\n{}'.format(text, self.rest)
+        expr_count = 0
+        result_value = 0
+        result_text = []
+        for e in self:
+            if isinstance(e, str):
+                result_text.append(e)
+            else:
+                value, text = e.eval(env)
+                result_value = value
+                expr_count += 1
+                result_text.append('<code>{}</code>'.format(text))
+        if expr_count == 0:
+            value, text = parse('1d', Dice).eval(env)
+            result_value = sum(value)
+            result_text.insert(0, '<code>{}<code>'.format(text))
+        return result_value, ' '.join(result_text)
 
 
 def roll(text, default_dice_face):
@@ -157,5 +172,5 @@ def roll(text, default_dice_face):
     try:
         roll_ast = parse(text, Roll)
     except SyntaxError:
-        raise RollError('格式错误')
+        raise RollError('格式错误!')
     return roll_ast.eval(env)
