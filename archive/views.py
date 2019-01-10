@@ -4,7 +4,7 @@ from .models import Chat
 
 
 def index(request):
-    chats = Chat.objects.all().order_by('created')
+    chats = Chat.objects.filter(parent=None).order_by('-created')
     return render(request, 'index.html', {'chats': chats})
 
 
