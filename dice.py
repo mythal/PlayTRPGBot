@@ -15,7 +15,7 @@ class Env:
 class Number(Symbol):
     regex = re.compile(r'\d{1,4}')
 
-    def eval(self):
+    def eval(self, *_args):
         return int(self.name), self.name
 
 
@@ -49,7 +49,7 @@ operator = [Add, Sub, Mul, Div]
 class Dice:
     grammar = attr('counter', optional(Number)), 'd', attr('face', optional(Number))
 
-    def eval(self, env: Env, show_sum=True):
+    def eval(self, env: Env, result_sum=True):
         if self.face:
             face, _ = self.face.eval()
         else:
@@ -72,8 +72,9 @@ class Dice:
         else:
             result_text = '={{{}}}'.format(', '.join(map(str, result)))
         show = '{}d{}{}'.format(counter, face, result_text)
-        if show_sum:
-            show += '={}'.format(sum(result))
+        if result_sum:
+            result = sum(result)
+            show += '={}'.format(result)
         return result, show
 
 
@@ -81,7 +82,7 @@ class Max:
     grammar = 'max', '(', attr('dice', Dice), ')'
 
     def eval(self, env):
-        value, text = self.dice.eval(env, show_sum=False)
+        value, text = self.dice.eval(env, result_sum=False)
         result = max(value)
         return result, 'max({})={}'.format(text, result)
 
@@ -90,7 +91,7 @@ class Min:
     grammar = 'min', '(', attr('dice', Dice), ')'
 
     def eval(self, env):
-        value, text = self.dice.eval(env, show_sum=False)
+        value, text = self.dice.eval(env, result_sum=False)
         result = min(value)
         return result, 'min({})={}'.format(text, min(value))
 
@@ -99,46 +100,38 @@ class Min:
 # https://bitbucket.org/fdik/pypeg/issues/4/
 class Expr(List):
     def eval(self, env):
-        add = Add('+')
-        op = add
-        acc = 0
+        value_list = []
         show_list = []
+
         for i in self:
-            v = 0
-            if isinstance(i, Dice):
+            if not isinstance(i, Operator):
                 v, show = i.eval(env)
-                v = sum(v)
+                value_list.append(v)
                 show_list.append(show)
-            elif isinstance(i, Max) or isinstance(i, Min):
-                v, show = i.eval(env)
-                show_list.append(show)
-            elif isinstance(i, Number):
-                v, show = i.eval()
-                show_list.append(show)
-            elif isinstance(i, Expr):
-                v, show = i.eval(env)
-                show_list.append(show)
-
-            if isinstance(i, Operator):
-                show_list.append(i.display)
-                op = i
             else:
-                if isinstance(op, Add):
-                    acc += v
-                elif isinstance(op, Mul):
-                    acc *= v
-                    op = add
-                elif isinstance(op, Sub):
-                    acc -= v
-                    op = add
-                elif isinstance(op, Div):
-                    try:
-                        acc = acc // v
-                    except ZeroDivisionError:
-                        raise RollError('要知道，0 不能做除数')
-                    op = add
+                show_list.append(i.display)
+                value_list.append(i)
 
-        return acc, '[{}]={}'.format(' '.join(show_list), acc)
+        for i, current in enumerate(value_list):
+            if isinstance(current, (Mul, Div)):
+                a = value_list[i - 1]
+                b = value_list[i + 1]
+                if isinstance(current, Mul):
+                    value_list[i + 1] = a * b
+                elif b == 0:
+                    raise RollError('要知道，0 不能做除数')
+                else:
+                    value_list[i + 1] = a // b
+                value_list[i] = Add('+')
+                value_list[i - 1] = 0
+
+        result = value_list[0]
+        for i, current in enumerate(value_list):
+            if isinstance(current, Add):
+                result += value_list[i + 1]
+            elif isinstance(current, Sub):
+                result -= value_list[i + 1]
+        return result, '[{}]={}'.format(' '.join(show_list), result)
 
 
 item = [Dice, Number, Max, Min, ('(', Expr, ')')]
@@ -161,8 +154,7 @@ class Roll(List):
                 expr_count += 1
                 result_text.append('<code>{}</code>'.format(text))
         if expr_count == 0:
-            value, text = parse('1d', Dice).eval(env)
-            result_value = sum(value)
+            result_value, text = parse('1d', Dice).eval(env)
             result_text.insert(0, '<code>{}</code>'.format(text))
         return result_value, ' '.join(result_text)
 
