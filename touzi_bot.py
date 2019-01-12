@@ -7,6 +7,7 @@ from typing import List
 
 import telegram
 from dotenv import load_dotenv
+from faker import Faker
 from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler
 
@@ -345,6 +346,57 @@ def select(bot: Bot, update: Update, args: [str]):
     bot.send_message(update.message.chat_id, choice(args))
 
 
+LOCALE_NAME = {
+    '英': 'en_GB',
+    '英国': 'en_GB',
+    '美': 'en_GB',
+    '美国': 'en_US',
+    '德': 'de_DE',
+    '德国': 'de_DE',
+    '中': 'zh_CN',
+    '中国': 'zh_CN',
+    '大陆': 'zh_CN',
+    '台': 'zh_TW',
+    '台湾': 'zh_TW',
+    '日': 'ja_JP',
+    '日本': 'ja_JP',
+    '法': 'fr_FR',
+    '法国': 'fr_FR',
+    '韩': 'ko_KR',
+    '韩国': 'ko_KR',
+    '韓国': 'ko_KR',
+}
+
+
+def random_text(method_name):
+    def command(_, update, args):
+        message = update.message
+        assert isinstance(message, telegram.Message)
+        locale = 'zh_CN'
+        if len(args) > 0:
+            name = args[0]
+            name.replace('國', '国')
+            locale = LOCALE_NAME.get(name, name)
+        try:
+            fake = Faker(locale)
+        except AttributeError:
+            message.reply_text(
+                '地区参数错误，如「中国」、「日本」、「美国」'
+                '或「中」、「日」、「美」，或者在[这个页面]'
+                '(https://github.com/joke2k/faker)里找。',
+                parse_mode='Markdown',
+            )
+            return
+
+        result = []
+        method = getattr(fake, method_name)
+        for _ in range(20):
+            result.append(method())
+        message.reply_text(', '.join(result))
+
+    return command
+
+
 def error(_, update, err):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, err)
@@ -356,9 +408,15 @@ def main():
     dispatcher.add_handler(CommandHandler('r', command_roll, pass_args=True, pass_chat_data=True))
     dispatcher.add_handler(CommandHandler('coc7', coc7stats, pass_args=True))
     dispatcher.add_handler(CommandHandler('coctrait', coc_trait))
+    dispatcher.add_handler(CommandHandler('name', random_text('name'), pass_args=True))
+    dispatcher.add_handler(CommandHandler('male', random_text('name_male'), pass_args=True))
+    dispatcher.add_handler(CommandHandler('female', random_text('name_female'), pass_args=True))
+    dispatcher.add_handler(CommandHandler('company', random_text('company'), pass_args=True))
+    dispatcher.add_handler(CommandHandler('address', random_text('address'), pass_args=True))
+    dispatcher.add_handler(CommandHandler('city', random_text('city'), pass_args=True))
     dispatcher.add_handler(CommandHandler('decide', select, pass_args=True))
-    dispatcher.add_handler(
-        CommandHandler('setdice', set_default_dice, pass_args=True, pass_chat_data=True))
+    dispatcher.add_handler(CommandHandler('choice', select, pass_args=True))
+    dispatcher.add_handler(CommandHandler('select', select, pass_args=True))
     dispatcher.add_error_handler(error)
     updater.start_polling()
     updater.idle()

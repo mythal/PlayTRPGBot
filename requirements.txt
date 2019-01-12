@@ -6,3 +6,4 @@ redis
 uwsgi
 django-redis-cache
 pypeg2
+faker
