@@ -474,6 +474,23 @@ def error(_, update, bot_error):
     logger.warning('Update "%s" caused error "%s"', update, bot_error)
 
 
+def handle_status(bot, update):
+    assert isinstance(update.message, telegram.Message)
+    message = update.message
+    chat = get_chat(message.chat)
+    if message.new_chat_title:
+        chat.title = message.new_chat_title
+        chat.save()
+    if message.new_chat_members:
+        for user in message.new_chat_members:
+            if user.id == bot.id:
+                message.chat.send_message(
+                    START_TEXT,
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+
+
 def get_chat(telegram_chat: telegram.Chat) -> Chat:
     chat = Chat.objects.filter(
         chat_id=telegram_chat.id
@@ -508,6 +525,7 @@ def main():
         channel_post_updates=False,
         pass_job_queue=True,
     ))
+    dp.add_handler(MessageHandler(Filters.status_update, handle_status))
     # always execute `run_chat_job`.
     dp.add_handler(
         MessageHandler(
