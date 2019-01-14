@@ -359,7 +359,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
         handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
         message.delete()
     else:
-        error_message(message, job_queue, '你没有删除这条记录的权限')
+        error_message(message, job_queue, '你没有编辑这条消息的权限')
 
 
 def is_gm(chat_id: int, user_id: int) -> bool:
@@ -403,7 +403,7 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd|lift)?\s*')
+COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd|lift|sub)?\s*')
 
 
 def handle_message(bot, update, job_queue, lift=False):
@@ -444,14 +444,15 @@ def handle_message(bot, update, job_queue, lift=False):
         handle_edit(bot, chat, job_queue, message, rest)
     elif command == 'hd':
         handle_roll(message, name, rest, job_queue, hide=True)
-    elif command == 'lift' \
-            and isinstance(message.reply_to_message, telegram.Message) \
-            and message.reply_to_message.from_user.id != bot.id:
+    elif command == 'lift':
         reply_to = message.reply_to_message
         user_id = message.from_user.id
-        if reply_to.from_user.id != user_id or not is_gm(message.chat_id, user_id):
-            message.reply_text('你没有权限转换这条消息')
-            return
+        if not isinstance(reply_to, telegram.Message):
+            return error_message(message, job_queue, '需要回复一条消息来转换')
+        elif reply_to.from_user.id == bot.id:
+            return error_message(message, job_queue, '需要回复一条玩家发送的消息')
+        elif reply_to.from_user.id != user_id or not is_gm(message.chat_id, user_id):
+            return error_message(message, job_queue, '你没有权限转换这条消息')
         update.message = reply_to
         message.delete()
         return handle_message(bot, update, job_queue, lift=True)
