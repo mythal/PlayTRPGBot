@@ -403,18 +403,21 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd)?\s*')
+COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd|lift)?\s*')
 
 
-def handle_message(bot, update, job_queue, with_photo=None):
+def handle_message(bot, update, job_queue, lift=False):
     message = update.message
     assert isinstance(message, telegram.Message)
+    with_photo = handle_photo(message)
     if with_photo:
         text = message.caption_html_urled
     else:
         text = message.text_html_urled
     if not isinstance(text, str):
         return
+    elif lift:
+        text = '.' + text
     message_match = COMMAND_REGEX.match(text)
     if not message_match:
         return
@@ -441,21 +444,28 @@ def handle_message(bot, update, job_queue, with_photo=None):
         handle_edit(bot, chat, job_queue, message, rest)
     elif command == 'hd':
         handle_roll(message, name, rest, job_queue, hide=True)
+    elif command == 'lift' \
+            and isinstance(message.reply_to_message, telegram.Message) \
+            and message.reply_to_message.from_user.id != bot.id:
+        reply_to = message.reply_to_message
+        user_id = message.from_user.id
+        if reply_to.from_user.id != user_id or not is_gm(message.chat_id, user_id):
+            message.reply_text('你没有权限转换这条消息')
+            return
+        update.message = reply_to
+        message.delete()
+        return handle_message(bot, update, job_queue, lift=True)
     else:
         handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
 
 
-def handle_photo(bot, update, job_queue):
-    message = update.message
-    assert isinstance(message, telegram.Message)
-    user = message.from_user
-    assert isinstance(user, telegram.User)
+def handle_photo(message: telegram.Message):
     photo_size_list = message.photo
     if len(photo_size_list) == 0:
-        return
+        return None
     photo_size_list.sort(key=lambda p: p.file_size)
-    handle_message(bot, update, with_photo=photo_size_list[-1], job_queue=job_queue)
+    return photo_size_list[-1]
 
 
 def error(_, update, bot_error):
@@ -492,14 +502,8 @@ def main():
     dp.add_handler(CommandHandler('name', set_name, pass_args=True, pass_job_queue=True))
 
     dp.add_handler(MessageHandler(
-        Filters.text,
+        Filters.text | Filters.photo,
         handle_message,
-        channel_post_updates=False,
-        pass_job_queue=True,
-    ))
-    dp.add_handler(MessageHandler(
-        Filters.photo,
-        handle_photo,
         channel_post_updates=False,
         pass_job_queue=True,
     ))
