@@ -50,7 +50,9 @@
         let reply_list = document.querySelectorAll('.reply a');
 
         function highlight() {
-            document.querySelector(this.getAttribute('href')).className += ' highlight';
+            let link = document.querySelector(this.getAttribute('href'));
+            link.replace(' highlight', '');
+            link.className += ' highlight';
         }
 
         for (let i = 0; i < reply_list.length; i++) {
