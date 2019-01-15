@@ -51,7 +51,7 @@
 
         function highlight() {
             let link = document.querySelector(this.getAttribute('href'));
-            link.replace(' highlight', '');
+            link.className.replace(' highlight', '');
             link.className += ' highlight';
         }
 
