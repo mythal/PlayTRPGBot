@@ -44,6 +44,8 @@ services:
     build: .
     image: quanbrew/play_trpg_bot
     command: python touzi_bot.py
+    ports:
+      - "127.0.0.1:9991:9991"
     restart: always
     env_file:
       - .env
