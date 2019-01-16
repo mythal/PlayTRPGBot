@@ -2,6 +2,7 @@ version: "3"
 services:
   web:
     build: .
+    image: quanbrew/play_trpg_bot
     command: ./start.sh
     restart: always
     volumes:
@@ -27,6 +28,7 @@ services:
       - ./data/redis:/data
   bot:
     build: .
+    image: quanbrew/play_trpg_bot
     command: python bot.py
     restart: always
     ports:
@@ -40,6 +42,7 @@ services:
       - .:/code
   touzi:
     build: .
+    image: quanbrew/play_trpg_bot
     command: python touzi_bot.py
     restart: always
     env_file:
