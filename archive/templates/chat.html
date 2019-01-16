@@ -51,8 +51,10 @@
 
         function highlight() {
             let link = document.querySelector(this.getAttribute('href'));
-            link.className.replace(' highlight', '');
-            link.className += ' highlight';
+            link.className = link.className.replace(' highlight', '');
+            setTimeout(() => {
+                link.className += ' highlight';
+            }, 200);
         }
 
         for (let i = 0; i < reply_list.length; i++) {
