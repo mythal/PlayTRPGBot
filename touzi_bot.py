@@ -17,6 +17,8 @@ MAX_FACE = 1000
 MAX_NUM = 200
 
 load_dotenv()
+TOKEN = os.environ['TOUZI_BOT_TOKEN']
+
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -403,7 +405,7 @@ def error(_, update, err):
 
 
 def main():
-    updater = Updater(token=os.environ['TOUZI_BOT_TOKEN'])
+    updater = Updater(token=TOKEN)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler('r', command_roll, pass_args=True, pass_chat_data=True))
     dispatcher.add_handler(CommandHandler('coc7', coc7stats, pass_args=True))
@@ -418,7 +420,15 @@ def main():
     dispatcher.add_handler(CommandHandler('choice', select, pass_args=True))
     dispatcher.add_handler(CommandHandler('select', select, pass_args=True))
     dispatcher.add_error_handler(error)
-    updater.start_polling()
+
+    # Start the Bot
+    if 'WEBHOOK_URL' in os.environ:
+        updater.start_webhook(listen='0.0.0.0', port=9991, url_path=TOKEN)
+        url = os.path.join(os.environ['WEBHOOK_URL'], TOKEN)
+        updater.bot.set_webhook(url=url)
+    else:
+        updater.start_polling()
+
     updater.idle()
 
 
