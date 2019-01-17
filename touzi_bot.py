@@ -426,7 +426,7 @@ def inline_query(_, update):
     else:
         choice_result = '@touzibot: 你什么都没写，让老娘怎么选!'
 
-    if len(choice_item):
+    if len(choice_item) == 1:
         choice_result += '\n\n只有一个选项，还让我选个蛋蛋哦?'
 
     stats = '生成角色得写年龄呐!'
