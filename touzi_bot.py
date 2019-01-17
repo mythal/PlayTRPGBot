@@ -84,23 +84,11 @@ def random_age() -> int:
     return age
 
 
-def coc7stats(_, update: Update, args: List[str]):
-    message = update.message
-    assert isinstance(message, telegram.Message)
+def coc7stats_text(age=None):
     warning = ""
-    is_random_age = False
-
-    if len(args) == 0:
+    is_random_age = age is None
+    if age is None:
         age = random_age()
-        is_random_age = True
-    elif len(args) != 1 or not args[0].isnumeric():
-        message.reply_text(
-            "召唤方式错误哦，只需要跟一个年龄参数，像这样 `/coc7 18` 。",
-            parse_mode='Markdown'
-        )
-        return
-    else:
-        age = int(args[0])
 
     d6 = Dice(6)
     d10 = Dice(10)
@@ -122,6 +110,8 @@ def coc7stats(_, update: Update, args: List[str]):
     }
     if is_random_age:
         stats['random_age_text'] = '你没有指定年龄，就当你是{}岁好了\n'.format(age)
+    else:
+        stats['random_age_text'] = ''
 
     if stats['dex'] < stats['size'] and stats['str'] < stats['size']:
         stats['mov'] = 7
@@ -196,11 +186,27 @@ def coc7stats(_, update: Update, args: List[str]):
 伤害加值 DB: {db:2}
 ```
 {random_age_text}
-已根据年龄调整了教育、移动力以及幸运。
-{0}
-    '''.format(warning, **stats)
-    message.reply_text(stats_text, parse_mode='Markdown')
-    return
+已根据年龄（{age}）调整了教育、移动力以及幸运。
+{0}'''.format(warning, **stats)
+    return stats_text
+
+
+def coc7stats(_, update: Update, args: List[str]):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+
+    if len(args) == 0:
+        age = None
+    elif len(args) != 1 or not args[0].isnumeric():
+        message.reply_text(
+            "召唤方式错误哦，只需要跟一个年龄参数，像这样 `/coc7 18` 。",
+            parse_mode='Markdown'
+        )
+        return
+    else:
+        age = int(args[0])
+
+    message.reply_text(coc7stats_text(age), parse_mode='Markdown')
 
 
 DICE_TYPE_PATTERN = re.compile(r'^d(\d+)')
@@ -341,7 +347,7 @@ def coc_trait(_, update: Update):
 你常常被人形容为{}
 你的星座是{} 血型是{} 幸运数字是{}
 有道士说你命格为{} 命中缺{} 最近有{}难
-你做 MBTI测试的结果是 {}
+你做 MBTI 测试的结果是 {}
 如果看到那些作品的话，你会更喜欢 {}
     '''.format(choice(belief), choice(vip_who), choice(vip_why), choice(place),
                choice(treasure), choice(trait), choice(constellation), blood_type,
@@ -407,16 +413,28 @@ def random_text(method_name):
     return command
 
 
-def inlinequery(bot, update):
+def inline_query(_, update):
     """Handle the inline query."""
     query = update.inline_query.query
+    assert isinstance(query, str)
+    query = query.strip()
     _, text = dice.roll(query, 20)
-    if query:
-        choice_item = query.split()
-        choiced = choice(choice_item)
-        choiced = '{{{}}} → {}'.format(', '.join(choice_item), choiced)
+    choice_item = query.split()
+    if choice_item:
+        choice_result = choice(choice_item)
+        choice_result = '<code>{{{}}}</code> → {}'.format(', '.join(choice_item), choice_result)
     else:
-        choiced = '你什么都没写，让老娘怎么选!'
+        choice_result = '@touzibot: 你什么都没写，让老娘怎么选!'
+
+    if len(choice_item):
+        choice_result += '\n\n只有一个选项，还让我选个蛋蛋哦?'
+
+    stats = '生成角色得写年龄呐!'
+    if query.isnumeric() and len(query) < 3:
+        age = int(query)
+        stats = coc7stats_text(age)
+    elif query == '':
+        stats = coc7stats_text(None)
 
     results = [
         InlineQueryResultArticle(
@@ -429,7 +447,13 @@ def inlinequery(bot, update):
             id=uuid4(),
             title="选择一项",
             description="让本小姐帮你决断吧，用空格分开选项如「睡觉 学习 赞美骰子女神」",
-            input_message_content=InputTextMessageContent(choiced),
+            input_message_content=InputTextMessageContent(choice_result, parse_mode=ParseMode.HTML),
+        ),
+        InlineQueryResultArticle(
+            id=uuid4(),
+            title="CoC 7E 人物属性",
+            description="记得写上年龄!",
+            input_message_content=InputTextMessageContent(stats, parse_mode=ParseMode.MARKDOWN),
         ),
     ]
 
@@ -456,7 +480,7 @@ def main():
     dispatcher.add_handler(CommandHandler('decide', select, pass_args=True))
     dispatcher.add_handler(CommandHandler('choice', select, pass_args=True))
     dispatcher.add_handler(CommandHandler('select', select, pass_args=True))
-    dispatcher.add_handler(InlineQueryHandler(inlinequery))
+    dispatcher.add_handler(InlineQueryHandler(inline_query))
     dispatcher.add_error_handler(error)
 
     # Start the Bot
