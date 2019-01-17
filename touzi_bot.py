@@ -424,30 +424,33 @@ def inline_query(_, update):
         choice_result = choice(choice_item)
         choice_result = '<code>{{{}}}</code> → {}'.format(', '.join(choice_item), choice_result)
     else:
-        choice_result = '@touzibot: 你什么都没写，让老娘怎么选!'
+        choice_result = None
 
     if len(choice_item) == 1:
         choice_result += '\n\n只有一个选项，还让我选个蛋蛋哦?'
 
-    stats = '生成角色得写年龄呐!'
+    stats = '生成角色得写年龄呐! 别些乱七八糟的'
     if query.isnumeric() and len(query) < 3:
         age = int(query)
         stats = coc7stats_text(age)
     elif query == '':
         stats = coc7stats_text(None)
 
-    results = [
+    results = []
+    if choice_result:
+        results.append(InlineQueryResultArticle(
+            id=uuid4(),
+            title="选择一项",
+            description="让本小姐帮你决断吧，用空格分开选项如「睡觉 学习 赞美骰子女神」",
+            input_message_content=InputTextMessageContent(choice_result, parse_mode=ParseMode.HTML),
+        ))
+
+    results += [
         InlineQueryResultArticle(
             id=uuid4(),
             title="投骰子",
             description="XdY X为骰子个数，Y为骰子面数，默认为20面",
             input_message_content=InputTextMessageContent(text, parse_mode=ParseMode.HTML),
-        ),
-        InlineQueryResultArticle(
-            id=uuid4(),
-            title="选择一项",
-            description="让本小姐帮你决断吧，用空格分开选项如「睡觉 学习 赞美骰子女神」",
-            input_message_content=InputTextMessageContent(choice_result, parse_mode=ParseMode.HTML),
         ),
         InlineQueryResultArticle(
             id=uuid4(),
