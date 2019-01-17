@@ -4,6 +4,14 @@
     box-sizing: border-box;
 }
 
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 body {
     font-size: 16px;
     max-width: 50rem;
@@ -61,9 +69,14 @@ body > header {
 body > footer {
     text-align: center;
     font-size: 14px;
+    margin: 2em;
 }
 
 .highlight {
     background: #a4d8ed;
     transition: 0.5s;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: normal;
 }
