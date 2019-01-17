@@ -419,10 +419,16 @@ def inline_query(_, update):
     assert isinstance(query, str)
     query = query.strip()
     _, text = dice.roll(query, 20)
-    choice_item = query.split()
+    if query.find(',') != -1:
+        choice_item = query.split(',')
+    elif query.find('，') != -1:
+        choice_item = query.split('，')
+    else:
+        choice_item = query.split()
+    choice_item = list(filter(lambda s: s != '', map(lambda s: s.strip(), choice_item)))
     if choice_item:
         choice_result = choice(choice_item)
-        choice_result = '<code>{{{}}}</code> → {}'.format(', '.join(choice_item), choice_result)
+        choice_result = '<code>{}</code> → {}'.format(', '.join(choice_item), choice_result)
     else:
         choice_result = None
 
