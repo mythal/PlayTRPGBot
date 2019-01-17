@@ -7,13 +7,21 @@
 {% block main %}
 
     <article id="logs">
+        {% if chat.description %}
+            <section class="description">
+                <h2>Description</h2>
+                {{ chat.description|linebreaks }}
+            </section>
+        {% endif %}
         {% if chat.chat_set.count > 0 %}
-            <h2>Sub</h2>
-            <ul>
-                {% for child in chat.chat_set.all %}
-                    <li><a href="{% url 'logs' child.id %}">{{ child.title }}</a></li>
-                {% endfor %}
-            </ul>
+            <section class="sub">
+                <h2>Sub</h2>
+                <ul>
+                    {% for child in chat.chat_set.all %}
+                        <li><a href="{% url 'logs' child.id %}">{{ child.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </section>
         {% endif %}
     <h2>Log</h2>
         <table>
