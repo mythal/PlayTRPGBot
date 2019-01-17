@@ -429,7 +429,7 @@ def inline_query(_, update):
     if len(choice_item) == 1:
         choice_result += '\n\n只有一个选项，还让我选个蛋蛋哦?'
 
-    stats = '生成角色得写年龄呐! 别些乱七八糟的'
+    stats = '生成角色得写年龄呐! 别写乱七八糟的'
     if query.isnumeric() and len(query) < 3:
         age = int(query)
         stats = coc7stats_text(age)
@@ -441,7 +441,7 @@ def inline_query(_, update):
         results.append(InlineQueryResultArticle(
             id=uuid4(),
             title="选择一项",
-            description="让本小姐帮你决断吧，用空格分开选项如「睡觉 学习 赞美骰子女神」",
+            description="有烦恼？让本小姐帮你决断吧！用空格分开选项如「睡觉 学习 赞美骰子女神」",
             input_message_content=InputTextMessageContent(choice_result, parse_mode=ParseMode.HTML),
         ))
 
@@ -455,7 +455,7 @@ def inline_query(_, update):
         InlineQueryResultArticle(
             id=uuid4(),
             title="CoC 7E 人物属性",
-            description="记得写上年龄!",
+            description="刷屏注意。另外记得写上年龄!",
             input_message_content=InputTextMessageContent(stats, parse_mode=ParseMode.MARKDOWN),
         ),
     ]
