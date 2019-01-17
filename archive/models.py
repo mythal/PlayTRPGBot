@@ -26,7 +26,7 @@ class Chat(models.Model):
     chat_id = models.BigIntegerField('Chat ID', db_index=True)
     created = models.DateTimeField(auto_now_add=True)
     title = models.CharField(max_length=256)
-    parent = models.ForeignKey('Chat', on_delete=models.CASCADE, null=True, default=None)
+    parent = models.ForeignKey('Chat', on_delete=models.CASCADE, null=True, default=None, blank=True)
     description = models.TextField(blank=True)
     save_date = models.DateTimeField(null=True)
     recording = models.BooleanField(default=True)
