@@ -4,12 +4,13 @@ import re
 import secrets
 from secrets import choice
 from typing import List
+from uuid import uuid4
 
 import telegram
 from dotenv import load_dotenv
 from faker import Faker
-from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler
+from telegram import Update, InlineQueryResultArticle, InputTextMessageContent, ParseMode
+from telegram.ext import Updater, CommandHandler, InlineQueryHandler
 
 import dice
 
@@ -83,8 +84,9 @@ def random_age() -> int:
     return age
 
 
-def coc7stats(bot: Bot, update: Update, args: List[str]):
-    chat_id = update.message.chat_id
+def coc7stats(_, update: Update, args: List[str]):
+    message = update.message
+    assert isinstance(message, telegram.Message)
     warning = ""
     is_random_age = False
 
@@ -92,9 +94,10 @@ def coc7stats(bot: Bot, update: Update, args: List[str]):
         age = random_age()
         is_random_age = True
     elif len(args) != 1 or not args[0].isnumeric():
-        bot.send_message(chat_id,
-                         "召唤方式错误哦，只需要跟一个年龄参数，像这样 `/coc7 18` 。",
-                         parse_mode='Markdown')
+        message.reply_text(
+            "召唤方式错误哦，只需要跟一个年龄参数，像这样 `/coc7 18` 。",
+            parse_mode='Markdown'
+        )
         return
     else:
         age = int(args[0])
@@ -196,20 +199,20 @@ def coc7stats(bot: Bot, update: Update, args: List[str]):
 已根据年龄调整了教育、移动力以及幸运。
 {0}
     '''.format(warning, **stats)
-    bot.send_message(chat_id, stats_text, parse_mode='Markdown')
+    message.reply_text(stats_text, parse_mode='Markdown')
     return
 
 
 DICE_TYPE_PATTERN = re.compile(r'^d(\d+)')
 
 
-def set_default_dice(bot: Bot, update: Update, args: [str], chat_data: dict):
-    chat_id = update.message.chat_id
+def set_default_dice(_, update: Update, args: [str], chat_data: dict):
+    message = update.message
+    assert isinstance(message, telegram.Message)
 
     # 没有参数
     if len(args) != 1:
-        bot.send_message(
-            chat_id,
+        message.reply_text(
             "诶呀，召唤我的方式出错了! `/set_dice` 后面跟一个形如 `d100` 的哦",
             parse_mode='Markdown'
         )
@@ -220,11 +223,11 @@ def set_default_dice(bot: Bot, update: Update, args: [str], chat_data: dict):
     if normal is not None:
         face_num = int(normal.group(1))
         if face_num > MAX_FACE:
-            bot.send_message(chat_id, "骰子的面数太多了，你在想什么！")
+            message.reply_text("骰子的面数太多了，你在想什么！")
         chat_data['dice'] = Dice(face_num)
-        bot.send_message(chat_id, "已设定当前默认骰子为{}面骰".format(face_num))
+        message.reply_text("已设定当前默认骰子为{}面骰".format(face_num))
     else:
-        bot.send_message(chat_id, "这种类型的骰子没办法设为默认骰子")
+        message.reply_text("这种类型的骰子没办法设为默认骰子")
 
 
 DICE_ROLL_PATTERN = re.compile(r'^(\d+)d(\d+)$')
@@ -237,7 +240,10 @@ def command_roll(_, update: Update, args: [str], chat_data: dict):
     msg.reply_text(text, parse_mode='HTML')
 
 
-def coc_trait(bot: Bot, update: Update):
+def coc_trait(_, update: Update):
+    msg = update.message
+    assert isinstance(msg, telegram.Message)
+
     belief = [
         '你信仰并祈并一位大能。(例如毗沙门天、耶稣基督、海尔·塞拉西一世)',
         '人类无需上帝。(例如坚定的无神论者，人文主义者，世俗主义者)',
@@ -341,11 +347,13 @@ def coc_trait(bot: Bot, update: Update):
                choice(treasure), choice(trait), choice(constellation), blood_type,
                choice(luck_number), choice(wuxing), choice(wuxing), choice(wuxing),
                mbti, characters_war_result)
-    bot.send_message(update.message.chat_id, message)
+    msg.reply_text(message)
 
 
-def select(bot: Bot, update: Update, args: [str]):
-    bot.send_message(update.message.chat_id, choice(args))
+def select(_, update: Update, args: [str]):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    message.reply_text(choice(args))
 
 
 LOCALE_NAME = {
@@ -399,6 +407,35 @@ def random_text(method_name):
     return command
 
 
+def inlinequery(bot, update):
+    """Handle the inline query."""
+    query = update.inline_query.query
+    _, text = dice.roll(query, 20)
+    if query:
+        choice_item = query.split()
+        choiced = choice(choice_item)
+        choiced = '{{{}}} → {}'.format(', '.join(choice_item), choiced)
+    else:
+        choiced = '你什么都没写，让老娘怎么选!'
+
+    results = [
+        InlineQueryResultArticle(
+            id=uuid4(),
+            title="投骰子",
+            description="XdY X为骰子个数，Y为骰子面数，默认为20面",
+            input_message_content=InputTextMessageContent(text, parse_mode=ParseMode.HTML),
+        ),
+        InlineQueryResultArticle(
+            id=uuid4(),
+            title="选择一项",
+            description="让本小姐帮你决断吧，用空格分开选项如「睡觉 学习 赞美骰子女神」",
+            input_message_content=InputTextMessageContent(choiced),
+        ),
+    ]
+
+    update.inline_query.answer(results, cache_time=0)
+
+
 def error(_, update, err):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, err)
@@ -419,6 +456,7 @@ def main():
     dispatcher.add_handler(CommandHandler('decide', select, pass_args=True))
     dispatcher.add_handler(CommandHandler('choice', select, pass_args=True))
     dispatcher.add_handler(CommandHandler('select', select, pass_args=True))
+    dispatcher.add_handler(InlineQueryHandler(inlinequery))
     dispatcher.add_error_handler(error)
 
     # Start the Bot
