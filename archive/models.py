@@ -45,7 +45,7 @@ class Log(models.Model):
     content = models.TextField()
     media = models.FileField(upload_to='uploads/%Y/%m/%d/', blank=True)
     gm = models.BooleanField('GM', default=False)
-    reply = models.ForeignKey('Log', on_delete=models.SET_NULL, null=True)
+    reply = models.ForeignKey('Log', on_delete=models.SET_NULL, null=True, blank=True)
     deleted = models.BooleanField(default=False)
     created = models.DateTimeField()
     modified = models.DateTimeField(auto_now=True)
