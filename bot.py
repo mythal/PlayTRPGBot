@@ -452,7 +452,7 @@ def handle_message(bot, update, job_queue, lift=False):
             return error_message(message, job_queue, '需要回复一条消息来转换')
         elif reply_to.from_user.id == bot.id:
             return error_message(message, job_queue, '需要回复一条玩家发送的消息')
-        elif reply_to.from_user.id != user_id or not is_gm(message.chat_id, user_id):
+        elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
             return error_message(message, job_queue, '你没有权限转换这条消息')
         update.message = reply_to
         message.delete()
