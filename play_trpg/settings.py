@@ -149,6 +149,39 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'data/static/')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'data/media/')
 
-for path in [STATIC_ROOT, MEDIA_ROOT]:
+# Logging
+
+LOG_ROOT = 'data/log/'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(LOG_ROOT, 'error.log'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}
+
+for path in [STATIC_ROOT, MEDIA_ROOT, LOG_ROOT]:
     if not os.path.exists(path):
         os.mkdir(path)
