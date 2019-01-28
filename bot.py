@@ -91,6 +91,7 @@ def set_name(_, update: telegram.Update, args, job_queue):
     redis.set('chat:{}:user:{}:name'.format(message.chat_id, user.id), name.encode())
     message.chat.send_message('{} 已被设为 {}'.format(user.full_name, name))
     message.delete()
+    save_username(message.chat_id, message.from_user.username, name)
 
 
 def get_name(message: telegram.Message) -> Optional[str]:
@@ -379,8 +380,8 @@ def update_admin_job(bot, job):
         return
 
 
-def save_username(chat_id, username, name):
-    if username:
+def save_username(chat_id, username=None, name=None):
+    if username and name:
         redis.set('chat:{}:username:{}:name'.format(chat_id, username), name)
 
 
@@ -451,7 +452,7 @@ def handle_message(bot, update, job_queue, lift=False):
             return error_message(message, job_queue, '需要回复一条消息来转换')
         elif reply_to.from_user.id == bot.id:
             return error_message(message, job_queue, '需要回复一条玩家发送的消息')
-        elif reply_to.from_user.id != user_id or not is_gm(message.chat_id, user_id):
+        elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
             return error_message(message, job_queue, '你没有权限转换这条消息')
         update.message = reply_to
         message.delete()
