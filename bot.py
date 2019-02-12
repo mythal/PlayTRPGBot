@@ -75,6 +75,13 @@ def save(_, update, job_queue):
         error_message(message, job_queue, '已经停止记录了')
 
 
+def delete_message(message: telegram.Message):
+    try:
+        message.delete()
+    except telegram.error.TelegramError:
+        message.reply_text('删除消息失败，请检查一下 Bot 的权限设置')
+
+
 def bot_help(_, update):
     """Send a message when the command /help is issued."""
     update.message.reply_text(HELP_TEXT, parse_mode='Markdown')
@@ -90,7 +97,7 @@ def set_name(_, update: telegram.Update, args, job_queue):
     name = ' '.join(args).strip()
     redis.set('chat:{}:user:{}:name'.format(message.chat_id, user.id), name.encode())
     message.chat.send_message('{} 已被设为 {}'.format(user.full_name, name))
-    message.delete()
+    delete_message(message)
     save_username(message.chat_id, message.from_user.username, name)
 
 
@@ -281,7 +288,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
         edit_log.kind = kind
         edit_log.save()
         bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
-        message.delete()
+        delete_message(message)
         return
 
     # send message or photo
@@ -325,7 +332,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             media = created_log.media.open('rb+')
             with_photo.get_file().download(out=media)
             media.close()
-    message.delete()
+    delete_message(message)
 
 
 def handle_delete(message: telegram.Message, job_queue):
@@ -336,10 +343,10 @@ def handle_delete(message: telegram.Message, job_queue):
         if log is None:
             error_message(message, job_queue, '这条记录不存在于数据库')
         elif log.user_id == user_id or is_gm(message.chat_id, user_id):
+            delete_message(target)
+            delete_message(message)
             log.deleted = True
             log.save()
-            target.delete()
-            message.delete()
         else:
             error_message(message, job_queue, '你没有删掉这条记录的权限')
     else:
@@ -358,7 +365,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
         error_message(message, job_queue, '这条记录不存在于数据库')
     elif log.user_id == user_id:
         handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
-        message.delete()
+        delete_message(message)
     else:
         error_message(message, job_queue, '你没有编辑这条消息的权限')
 
@@ -422,8 +429,8 @@ def handle_message(bot, update, job_queue, lift=False):
     message_match = COMMAND_REGEX.match(text)
     if not message_match:
         return
-    elif message.chat.type != 'supergroup':
-        message.reply_text('只能在超级群中使用我哦')
+    elif message.chat.type != 'supergroup' and message.chat.type != 'group':
+        message.reply_text('只能在群中使用我哦')
         return
     elif not isinstance(message.from_user, telegram.User):
         return
@@ -452,11 +459,12 @@ def handle_message(bot, update, job_queue, lift=False):
             return error_message(message, job_queue, '需要回复一条消息来转换')
         elif reply_to.from_user.id == bot.id:
             return error_message(message, job_queue, '需要回复一条玩家发送的消息')
-        elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
-            return error_message(message, job_queue, '你没有权限转换这条消息')
-        update.message = reply_to
-        message.delete()
-        return handle_message(bot, update, job_queue, lift=True)
+        elif reply_to.from_user.id == user_id or is_gm(message.chat_id, user_id):
+            update.message = reply_to
+            delete_message(update.message)
+            return handle_message(bot, update, job_queue, lift=True)
+        else:
+            return error_message(message, job_queue, '你只能转换自己的消息，GM 能转换任何人的消息')
     else:
         handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
