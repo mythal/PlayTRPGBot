@@ -5,7 +5,13 @@ from .models import Chat
 
 def index(request):
     chats = Chat.objects.filter(parent=None).order_by('-created')
-    return render(request, 'index.html', {'chats': chats})
+    display_chats = []
+    for chat in chats:
+        count = chat.log_set.filter(deleted=False).count()
+        if count > 0:
+            chat.log_count = count
+            display_chats.append(chat)
+    return render(request, 'index.html', {'chats': display_chats})
 
 
 def logs(request, chat_id):
