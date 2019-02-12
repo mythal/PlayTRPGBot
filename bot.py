@@ -306,6 +306,8 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             parse_mode='HTML',
         )
     else:
+        if not chat.recording:
+            send_text = '[未记录] ' + send_text
         sent = message.chat.send_message(
             send_text,
             reply_to_message_id=reply_to_message_id,
@@ -363,7 +365,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
     log = Log.objects.filter(message_id=target.message_id).first()
     if log is None:
         error_message(message, job_queue, '这条记录不存在于数据库')
-    elif log.user_id == user_id:
+    elif log.user_id == message.from_user.id:
         handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
         delete_message(message)
     else:
