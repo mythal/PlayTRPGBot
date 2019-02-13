@@ -450,7 +450,8 @@ def run_chat_job(_, update, job_queue):
     assert isinstance(job_queue, telegram.ext.JobQueue)
     if isinstance(update.message, telegram.Message):
         message = update.message
-        if message.chat.type != 'supergroup':
+        chat_type = message.chat.type
+        if chat_type not in ('supergroup', 'group'):
             return
         chat_id = message.chat_id
         job_name = 'chat:{}'.format(chat_id)
