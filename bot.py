@@ -362,10 +362,10 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
 
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
-    log = Log.objects.filter(message_id=target.message_id).first()
+    log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
     if log is None:
-        error_message(message, job_queue, '这条记录不存在于数据库')
-    elif log.user_id == message.from_user.id:
+        error_message(message, job_queue, '找不到对应的消息')
+    elif log.user_id == user_id:
         handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
         delete_message(message)
     else:
