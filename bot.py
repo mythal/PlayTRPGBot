@@ -87,6 +87,14 @@ def bot_help(_, update):
     update.message.reply_text(HELP_TEXT, parse_mode='Markdown')
 
 
+def set_temp_name(chat_id, user_id, temp_name):
+    redis.set('chat:{}:user:{}:name:temp'.format(chat_id, user_id), temp_name)
+
+
+def get_temp_name(chat_id, user_id):
+    return redis.get('chat:{}:user:{}:name:temp'.format(chat_id, user_id))
+
+
 def set_name(_, update: telegram.Update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -251,6 +259,33 @@ def get_symbol(chat_id, user_id) -> str:
 
 def is_empty_message(text):
     return ME_REGEX.sub('', text).strip() == ''
+
+
+# ..(space)..[name];..(space)..
+AS_PATTERN = re.compile(r'^\s*([^;]+)[;；]\s*')
+
+
+def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
+                  text: str, with_photo=None):
+    user_id = message.from_user.id
+    match = AS_PATTERN.match(text)
+    if match:
+        name = match.group(1).strip()
+        if name == '':
+            return error_message(message, job_queue, '名字不能为空')
+        set_temp_name(chat.chat_id, user_id, name)
+        text = text[match.end():]
+    if not is_gm(chat.chat_id, user_id):
+        return error_message(message, job_queue, '.as 命令只有 GM 能用')
+    else:
+        name = get_temp_name(chat.chat_id, user_id) or ''
+        if name == '':
+            error_text = '''.as 的用法是 .as [名字]; [内容]。
+如果之前用过 .as 的话可以省略名字的部分，直接写 .as [内容]。
+但你之前并没有用过 .as'''
+            return error_message(message, job_queue, error_text)
+
+    handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
 
 
 def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
@@ -430,7 +465,7 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|edit\b|hd|lift|sub)?\s*')
+COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|hd|lift|sub|as)?\s*')
 
 
 def handle_message(bot, update, job_queue, lift=False):
@@ -465,6 +500,8 @@ def handle_message(bot, update, job_queue, lift=False):
         handle_roll(message, name, rest, job_queue)
     elif command == 'me':
         handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
+    elif command == 'as':
+        handle_as_say(bot, chat, job_queue, message, rest, with_photo=with_photo)
     elif command == 'hd':
         handle_roll(message, name, rest, job_queue, hide=True)
     elif command in ('del', 'delete', 'edit', 'lift'):
