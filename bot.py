@@ -88,11 +88,13 @@ def bot_help(_, update):
 
 
 def set_temp_name(chat_id, user_id, temp_name):
-    redis.set('chat:{}:user:{}:name:temp'.format(chat_id, user_id), temp_name)
+    redis.set('chat:{}:user:{}:name:temp'.format(chat_id, user_id), temp_name.encode())
 
 
 def get_temp_name(chat_id, user_id):
-    return redis.get('chat:{}:user:{}:name:temp'.format(chat_id, user_id))
+    result = redis.get('chat:{}:user:{}:name:temp'.format(chat_id, user_id))
+    if result:
+        return result.decode()
 
 
 def set_name(_, update: telegram.Update, args, job_queue):
