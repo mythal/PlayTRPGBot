@@ -437,7 +437,10 @@ def update_admin_job(bot, job):
         user_id_list = [member.user.id for member in administrators]
         admin_set_key = 'chat:{}:admin_set'.format(chat_id)
         redis.delete(admin_set_key)
-        redis.sadd(admin_set_key, *user_id_list)
+        if user_id_list:
+            redis.sadd(admin_set_key, *user_id_list)
+        else:
+            job.schedule_removal()
     except TelegramError:
         job.schedule_removal()
         return
