@@ -372,6 +372,23 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
         error_message(message, job_queue, '你没有编辑这条消息的权限')
 
 
+def handle_lift(update: telegram.Update, job_queue):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    reply_to = message.reply_to_message
+    user_id = message.from_user.id
+    if not isinstance(reply_to, telegram.Message):
+        return error_message(message, job_queue, '需要回复一条消息来转换')
+    elif reply_to.from_user.id == message.bot.id:
+        return error_message(message, job_queue, '需要回复一条玩家发送的消息')
+    elif reply_to.from_user.id == user_id or is_gm(message.chat_id, user_id):
+        update.message = reply_to
+        delete_message(update.message)
+        return handle_message(message.bot, update, job_queue, lift=True)
+    else:
+        return error_message(message, job_queue, '你只能转换自己的消息，GM 能转换任何人的消息')
+
+
 def is_gm(chat_id: int, user_id: int) -> bool:
     return redis.sismember('chat:{}:admin_set'.format(chat_id), user_id)
 
@@ -448,25 +465,17 @@ def handle_message(bot, update, job_queue, lift=False):
         handle_roll(message, name, rest, job_queue)
     elif command == 'me':
         handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
-    elif command == 'del' or command == 'delete':
-        handle_delete(message, job_queue)
-    elif command == 'edit':
-        handle_edit(bot, chat, job_queue, message, rest)
     elif command == 'hd':
         handle_roll(message, name, rest, job_queue, hide=True)
-    elif command == 'lift':
-        reply_to = message.reply_to_message
-        user_id = message.from_user.id
-        if not isinstance(reply_to, telegram.Message):
-            return error_message(message, job_queue, '需要回复一条消息来转换')
-        elif reply_to.from_user.id == bot.id:
-            return error_message(message, job_queue, '需要回复一条玩家发送的消息')
-        elif reply_to.from_user.id == user_id or is_gm(message.chat_id, user_id):
-            update.message = reply_to
-            delete_message(update.message)
-            return handle_message(bot, update, job_queue, lift=True)
-        else:
-            return error_message(message, job_queue, '你只能转换自己的消息，GM 能转换任何人的消息')
+    elif command in ('del', 'delete', 'edit', 'lift'):
+        if not chat.recording:
+            error_message(message, job_queue, '未在记录中，无法编辑消息')
+        elif command == 'del' or command == 'delete':
+            handle_delete(message, job_queue)
+        elif command == 'edit':
+            handle_edit(bot, chat, job_queue, message, rest)
+        elif command == 'lift':
+            handle_lift(update, job_queue)
     else:
         handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
