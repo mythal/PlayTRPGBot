@@ -44,6 +44,92 @@ help_file.close()
 start_file.close()
 
 
+class Round:
+    reply_markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("下一轮", callback_data='round:next'),
+            InlineKeyboardButton("上一轮", callback_data='round:prev'),
+        ],
+        [
+            InlineKeyboardButton("删除当前", callback_data='round:remove'),
+            InlineKeyboardButton("结束", callback_data='round:finish'),
+        ]
+    ])
+
+    def __init__(self, chat: telegram.Chat):
+        text = '回合指示器\n\n没有人加入回合，使用 <code>.init [值]</code> 来加入回合'
+        message = chat.send_message(text, parse_mode='HTML', reply_markup=self.reply_markup)
+        bot = chat.bot
+        assert isinstance(bot, telegram.Bot)
+        bot.pin_chat_message(chat.id, message.message_id, disable_notification=True)
+        self.count = 0
+        self.chat_id = chat.id
+        self.message_id = message.message_id
+        self.actors = []
+
+    def add_actor(self, actor_name, value):
+        self.actors.append((value, actor_name))
+        self.actors.sort(reverse=True)
+
+    def remove_current(self):
+        if len(self.actors) > 1:
+            self.actors.pop(self.count % len(self.actors))
+
+    @staticmethod
+    def redis_key(chat_id):
+        return 'chat:{}:round'.format(chat_id)
+
+    @staticmethod
+    def get(chat_id):
+        pickled = redis.get(Round.redis_key(chat_id))
+        if not pickled:
+            return None
+        else:
+            return pickle.loads(pickled)
+
+    @staticmethod
+    def clear(chat_id):
+        redis.delete(Round.redis_key(chat_id))
+
+    def finish(self, query: telegram.CallbackQuery):
+        query.edit_message_text('回合轮已结束')
+        Round.clear(self.chat_id)
+        if isinstance(query.bot, telegram.Bot):
+            query.bot.unpin_chat_message(chat_id=self.chat_id)
+
+    def save(self):
+        redis.set(Round.redis_key(self.chat_id), pickle.dumps(self))
+
+    def next(self):
+        self.count += 1
+
+    def prev(self):
+        if self.count > 0:
+            self.count -= 1
+
+    def refresh(self, query=None, bot=None):
+        text = '<b>回合指示器: {}</b>\n\n'.format(self.count + 1)
+        actors_count = len(self.actors)
+        for i in range(actors_count):
+            value, name = self.actors[i]
+            is_current = self.count % actors_count == i
+            if is_current:
+                text += '◦ {} ({}) ← 当前\n'.format(name, value)
+            else:
+                text += '◦ {} ({})\n'.format(name, value)
+
+        if isinstance(query, telegram.CallbackQuery):
+            query.edit_message_text(text, parse_mode='HTML', reply_markup=self.reply_markup)
+        elif isinstance(bot, telegram.Bot):
+            bot.edit_message_text(
+                text,
+                chat_id=self.chat_id,
+                message_id=self.message_id,
+                parse_mode='HTML',
+                reply_markup=self.reply_markup
+            )
+
+
 def start(_, update, job_queue):
     """Send a message when the command /start is issued."""
     message = update.message
@@ -95,6 +181,13 @@ def get_temp_name(chat_id, user_id):
     result = redis.get('chat:{}:user:{}:name:temp'.format(chat_id, user_id))
     if result:
         return result.decode()
+
+
+def start_round(_, update: telegram.Update):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    game_round = Round(message.chat)
+    game_round.save()
 
 
 def set_name(_, update: telegram.Update, args, job_queue):
@@ -150,23 +243,47 @@ def roll_text(chat_id, text):
     return text
 
 
-def look_hide_roll(_, update):
+def inline_callback(_, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
-    result = redis.get('roll:{}'.format(query.data))
-    if result:
-        data = pickle.loads(result)
-        if is_gm(data['chat_id'], query.from_user.id):
-            text = data['text'].replace('<code>', '').replace('</code>', '')
-        else:
-            text = '你不是 GM，不能看哟'
+    data = query.data or ''
+    data = str(data)
+    if data.startswith('round'):
+        game_round = Round.get(query.message.chat_id)
+        if not isinstance(game_round, Round):
+            query.answer(show_alert=True, text='现在游戏没在回合状态之中')
+            return
+        if data.startswith('round:next'):
+            game_round.next()
+            game_round.refresh(query=query)
+            game_round.save()
+        elif data.startswith('round:prev'):
+            game_round.prev()
+            game_round.refresh(query=query)
+            game_round.save()
+        elif data.startswith('round:remove'):
+            game_round.remove_current()
+            game_round.refresh(query=query)
+            game_round.save()
+        elif data.startswith('round:finish'):
+            game_round.finish(query)
+        return
     else:
-        text = '找不到这条暗骰记录'
-    query.answer(
-        show_alert=True,
-        text=text,
-        cache_time=10000,
-    )
+        # hide roll
+        result = redis.get('roll:{}'.format(query.data))
+        if result:
+            data = pickle.loads(result)
+            if is_gm(data['chat_id'], query.from_user.id):
+                text = data['text'].replace('<code>', '').replace('</code>', '')
+            else:
+                text = '你不是 GM，不能看哟'
+        else:
+            text = '找不到这条暗骰记录'
+        query.answer(
+            show_alert=True,
+            text=text,
+            cache_time=10000,
+        )
 
 
 def handle_roll(message: telegram.Message, name: str, text: str,
@@ -409,6 +526,29 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
         error_message(message, job_queue, '你没有编辑这条消息的权限')
 
 
+INITIATIVE_REGEX = re.compile(r'^(.+)=\s*(\d{1,4})$')
+
+
+def handle_initiative(message: telegram.Message, job_queue, name: str, text: str):
+    text = text.strip()
+    match = INITIATIVE_REGEX.match(text)
+    number = text
+    if match is not None:
+        name = match.group(1).strip()
+        number = match.group(2)
+    elif not text.isnumeric() or len(text) > 4:
+        error_message(message, job_queue, '请输入四位数以内的数字，或用等号分开名字和数字')
+        return
+    game_round = Round.get(message.chat_id)
+    if not isinstance(game_round, Round):
+        error_message(message, job_queue, '请先用 /round 指令开启回合轮')
+        return
+    game_round.add_actor(name, int(number))
+    game_round.save()
+    game_round.refresh(bot=message.bot)
+    message.delete()
+
+
 def handle_lift(update: telegram.Update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -471,7 +611,7 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|hd|lift|sub|as)?\s*')
+COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|init|hd|lift|sub|as)?\s*')
 
 
 def handle_message(bot, update, job_queue, lift=False):
@@ -510,6 +650,8 @@ def handle_message(bot, update, job_queue, lift=False):
         handle_as_say(bot, chat, job_queue, message, rest, with_photo=with_photo)
     elif command == 'hd':
         handle_roll(message, name, rest, job_queue, hide=True)
+    elif command == 'init':
+        handle_initiative(message, job_queue, name, rest)
     elif command in ('del', 'delete', 'edit', 'lift'):
         if not chat.recording:
             error_message(message, job_queue, '未在记录中，无法编辑消息')
@@ -581,6 +723,7 @@ def main():
     dp.add_handler(CommandHandler("help", bot_help))
     dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True, pass_job_queue=True))
     dp.add_handler(CommandHandler('name', set_name, pass_args=True, pass_job_queue=True))
+    dp.add_handler(CommandHandler('round', start_round))
 
     dp.add_handler(MessageHandler(
         Filters.text | Filters.photo,
@@ -600,7 +743,7 @@ def main():
         group=42
     )
 
-    updater.dispatcher.add_handler(CallbackQueryHandler(look_hide_roll))
+    updater.dispatcher.add_handler(CallbackQueryHandler(inline_callback))
     # log all errors
     dp.add_error_handler(error)
 
