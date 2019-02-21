@@ -46,18 +46,19 @@ class Div(Operator):
 operator = [Add, Sub, Mul, Div]
 
 
-class Dice:
-    grammar = attr('counter', optional(Number)), 'd', attr('face', optional(Number))
+class Dice(Symbol):
+    regex = re.compile(r'\d{0,4}d\d{0,4}')
 
     def eval(self, env: Env, result_sum=True):
-        if self.face:
-            face, _ = self.face.eval()
-        else:
-            face = env.face
-        if self.counter:
-            counter, _ = self.counter.eval()
-        else:
+        match = self.name.split('d')
+        try:
+            counter = int(match[0])
+        except ValueError:
             counter = 1
+        try:
+            face = int(match[1])
+        except ValueError:
+            face = env.face
 
         if face == 0 or counter == 0:
             result = [0]
@@ -79,6 +80,7 @@ class Dice:
 
 
 class Max:
+    dice = None
     grammar = 'max', '(', attr('dice', Dice), ')'
 
     def eval(self, env):
@@ -88,6 +90,7 @@ class Max:
 
 
 class Min:
+    dice = None
     grammar = 'min', '(', attr('dice', Dice), ')'
 
     def eval(self, env):
