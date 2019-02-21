@@ -30,6 +30,7 @@ class Chat(models.Model):
     description = models.TextField(blank=True)
     save_date = models.DateTimeField(null=True)
     recording = models.BooleanField(default=True)
+    password = models.CharField(max_length=512, default='')
 
     def __str__(self):
         return self.title
