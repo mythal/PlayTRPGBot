@@ -61,7 +61,10 @@ class Round:
         message = chat.send_message(text, parse_mode='HTML', reply_markup=self.reply_markup)
         bot = chat.bot
         assert isinstance(bot, telegram.Bot)
-        bot.pin_chat_message(chat.id, message.message_id, disable_notification=True)
+        try:
+            bot.pin_chat_message(chat.id, message.message_id, disable_notification=True)
+        except TelegramError:
+            pass
         self.count = 0
         self.chat_id = chat.id
         self.message_id = message.message_id
@@ -95,7 +98,10 @@ class Round:
         query.edit_message_text('回合轮已结束')
         Round.clear(self.chat_id)
         if isinstance(query.bot, telegram.Bot):
-            query.bot.unpin_chat_message(chat_id=self.chat_id)
+            try:
+                query.bot.unpin_chat_message(chat_id=self.chat_id)
+            except TelegramError:
+                pass
 
     def save(self):
         redis.set(Round.redis_key(self.chat_id), pickle.dumps(self))
@@ -107,6 +113,28 @@ class Round:
         if self.count > 0:
             self.count -= 1
 
+    def inline_callback(self, query: telegram.CallbackQuery, gm: bool):
+        method = str(query.data)
+        if method == 'round:next':
+            self.next()
+            self.refresh(query=query)
+            self.save()
+        elif method == 'round:prev':
+            self.prev()
+            self.refresh(query=query)
+            self.save()
+        elif method == 'round:remove':
+            if not gm:
+                raise NotGm()
+            self.remove_current()
+            self.refresh(query=query)
+            self.save()
+        elif method == 'round:finish':
+            if not gm:
+                raise NotGm()
+            self.finish(query)
+        return
+
     def refresh(self, query=None, bot=None):
         text = '<b>回合指示器: {}</b>\n\n'.format(self.count + 1)
         actors_count = len(self.actors)
@@ -114,7 +142,7 @@ class Round:
             value, name = self.actors[i]
             is_current = self.count % actors_count == i
             if is_current:
-                text += '◦ {} ({}) ← 当前\n'.format(name, value)
+                text += '• {} ({}) ← 当前\n'.format(name, value)
             else:
                 text += '◦ {} ({})\n'.format(name, value)
 
@@ -128,6 +156,10 @@ class Round:
                 parse_mode='HTML',
                 reply_markup=self.reply_markup
             )
+
+
+class NotGm(Exception):
+    pass
 
 
 def start(_, update, job_queue):
@@ -246,44 +278,34 @@ def roll_text(chat_id, text):
 def inline_callback(_, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
+    gm = is_gm(query.message.chat_id, query.from_user.id)
     data = query.data or ''
     data = str(data)
-    if data.startswith('round'):
-        game_round = Round.get(query.message.chat_id)
-        if not isinstance(game_round, Round):
-            query.answer(show_alert=True, text='现在游戏没在回合状态之中')
-            return
-        if data.startswith('round:next'):
-            game_round.next()
-            game_round.refresh(query=query)
-            game_round.save()
-        elif data.startswith('round:prev'):
-            game_round.prev()
-            game_round.refresh(query=query)
-            game_round.save()
-        elif data.startswith('round:remove'):
-            game_round.remove_current()
-            game_round.refresh(query=query)
-            game_round.save()
-        elif data.startswith('round:finish'):
-            game_round.finish(query)
+    try:
+        if data.startswith('round'):
+            game_round = Round.get(query.message.chat_id)
+            if not isinstance(game_round, Round):
+                query.answer(show_alert=True, text='现在游戏没在回合状态之中')
+                return
+            return game_round.inline_callback(query, gm)
+        elif not gm:
+            raise NotGm()
+    except NotGm:
+        query.answer(show_alert=True, text='只能 GM (Admin) 才能这样操作哦', cache_time=0)
         return
+
+    # hide roll
+    result = redis.get('roll:{}'.format(query.data))
+    if result:
+        data = pickle.loads(result)
+        text = data['text'].replace('<code>', '').replace('</code>', '')
     else:
-        # hide roll
-        result = redis.get('roll:{}'.format(query.data))
-        if result:
-            data = pickle.loads(result)
-            if is_gm(data['chat_id'], query.from_user.id):
-                text = data['text'].replace('<code>', '').replace('</code>', '')
-            else:
-                text = '你不是 GM，不能看哟'
-        else:
-            text = '找不到这条暗骰记录'
-        query.answer(
-            show_alert=True,
-            text=text,
-            cache_time=10000,
-        )
+        text = '找不到这条暗骰记录'
+    query.answer(
+        show_alert=True,
+        text=text,
+        cache_time=10000,
+    )
 
 
 def handle_roll(message: telegram.Message, name: str, text: str,
@@ -304,20 +326,21 @@ def handle_roll(message: telegram.Message, name: str, text: str,
         keyboard = [[InlineKeyboardButton("GM 查看", callback_data=roll_id)]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        sent = message.chat.send_message(
-            '<b>{}</b> 投了一个隐形骰子'.format(name),
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
+        text = '<b>{}</b> 投了一个隐形骰子'.format(name)
         kind = LogKind.HIDE_DICE.value
     else:
-        sent = message.chat.send_message(
-            '{} 🎲 {}'.format(name, result_text),
-            parse_mode='HTML'
-        )
+        text = '{} 🎲 {}'.format(name, result_text)
+        reply_markup = None
+    chat = get_chat(message.chat)
+    if not chat.recording:
+        text = '[未记录] ' + text
+    sent = message.chat.send_message(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
     user = message.from_user
     assert isinstance(user, telegram.User)
-    chat = get_chat(message.chat)
     if chat.recording:
         Log.objects.create(
             user_id=user.id,
@@ -537,7 +560,8 @@ def handle_initiative(message: telegram.Message, job_queue, name: str, text: str
         name = match.group(1).strip()
         number = match.group(2)
     elif not text.isnumeric() or len(text) > 4:
-        error_message(message, job_queue, '请输入四位数以内的数字，或用等号分开名字和数字')
+        usage = '用法： <code>.init [数字]</code> 或 <code>.init [角色名] = [数字]</code>'
+        error_message(message, job_queue, usage)
         return
     game_round = Round.get(message.chat_id)
     if not isinstance(game_round, Round):
