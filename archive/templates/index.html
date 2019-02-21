@@ -8,8 +8,9 @@
         {% for chat in chats %}
             <li>
                 <div>
-                    <a href="{% url 'logs' chat.id %}">{{ chat.title }}</a> <span
-                        class="log-count">({{ chat.log_count }})</span>
+                    {% if chat.password %}<span class="has_password">🔒</span>{% endif %}
+                    <a href="{% url 'chat' chat.id %}">{{ chat.title }}</a>
+                    <span class="log-count">({{ chat.log_count }})</span>
                 </div>
             </li>
         {% endfor %}

@@ -5,6 +5,7 @@ import os
 import pickle
 import re
 import uuid
+from hashlib import sha256
 from typing import Optional
 
 import django
@@ -733,6 +734,18 @@ def get_chat(telegram_chat: telegram.Chat) -> Chat:
         )
 
 
+def set_password(_, update, args, job_queue):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    if len(args) != 1:
+        text = '输入 /password [你的密码] 设置密码。密码中不能有空格。'
+        return error_message(message, job_queue, text)
+    chat = get_chat(message.chat)
+    chat.password = sha256(str(args[0]).encode()).hexdigest()
+    chat.save()
+    message.reply_text('密码已设置')
+
+
 def main():
     """Start the bot."""
     # Create the EventHandler and pass it your bot's token.
@@ -748,6 +761,7 @@ def main():
     dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True, pass_job_queue=True))
     dp.add_handler(CommandHandler('name', set_name, pass_args=True, pass_job_queue=True))
     dp.add_handler(CommandHandler('round', start_round))
+    dp.add_handler(CommandHandler('password', set_password, pass_args=True, pass_job_queue=True))
 
     dp.add_handler(MessageHandler(
         Filters.text | Filters.photo,
