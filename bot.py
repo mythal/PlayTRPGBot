@@ -10,6 +10,7 @@ from typing import Optional
 
 import django
 import telegram
+from django.db import models, transaction
 from dotenv import load_dotenv
 from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -23,6 +24,7 @@ load_dotenv()
 django.setup()
 
 from archive.models import Chat, Log, LogKind  # noqa
+from game.models import Round, Actor  # noqa
 
 
 # Enable logging
@@ -44,128 +46,16 @@ START_TEXT = start_file.read()
 help_file.close()
 start_file.close()
 
-
-class Round:
-    reply_markup = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("下一轮", callback_data='round:next'),
-            InlineKeyboardButton("上一轮", callback_data='round:prev'),
-        ],
-        [
-            InlineKeyboardButton("删除当前", callback_data='round:remove'),
-            InlineKeyboardButton("结束", callback_data='round:finish'),
-        ]
-    ])
-
-    def __init__(self, chat: telegram.Chat):
-        text = '回合指示器\n\n没有人加入回合，使用 <code>.init [值]</code> 来加入回合'
-        message = chat.send_message(text, parse_mode='HTML', reply_markup=self.reply_markup)
-        bot = chat.bot
-        assert isinstance(bot, telegram.Bot)
-        try:
-            bot.pin_chat_message(chat.id, message.message_id, disable_notification=True)
-        except TelegramError:
-            pass
-        self.count = 0
-        self.chat_id = chat.id
-        self.message_id = message.message_id
-        self.actors = []
-
-    def add_actor(self, actor_name, value):
-        self.actors.append((value, actor_name))
-        self.actors.sort(reverse=True)
-
-    def remove_current(self):
-        if len(self.actors) > 1:
-            self.actors.pop(self.count % len(self.actors))
-
-    @staticmethod
-    def redis_key(chat_id):
-        return 'chat:{}:round'.format(chat_id)
-
-    @staticmethod
-    def get(chat_id):
-        pickled = redis.get(Round.redis_key(chat_id))
-        if not pickled:
-            return None
-        else:
-            return pickle.loads(pickled)
-
-    @staticmethod
-    def clear(chat_id):
-        redis.delete(Round.redis_key(chat_id))
-
-    def finish(self, query: telegram.CallbackQuery):
-        query.edit_message_text('回合轮已结束')
-        Round.clear(self.chat_id)
-        if isinstance(query.bot, telegram.Bot):
-            try:
-                query.bot.unpin_chat_message(chat_id=self.chat_id)
-            except TelegramError:
-                pass
-
-    def save(self):
-        redis.set(Round.redis_key(self.chat_id), pickle.dumps(self))
-
-    def next(self):
-        self.count += 1
-
-    def prev(self):
-        if self.count > 0:
-            self.count -= 1
-
-    def inline_callback(self, query: telegram.CallbackQuery, gm: bool):
-        method = str(query.data)
-        if method == 'round:next':
-            self.next()
-            self.refresh(query=query)
-            self.save()
-        elif method == 'round:prev':
-            if self.count > 0:
-                self.prev()
-                self.refresh(query=query)
-                self.save()
-            else:
-                query.answer(text='已经是第 1 回合了')
-        elif method == 'round:remove':
-            if not gm:
-                raise NotGm()
-            if len(self.actors) > 1:
-                self.remove_current()
-                self.refresh(query=query)
-                self.save()
-            else:
-                query.answer(show_alert=True, text='至少要有一位角色在回合中')
-        elif method == 'round:finish':
-            if not gm:
-                raise NotGm()
-            self.finish(query)
-        return
-
-    def refresh(self, query=None, bot=None):
-        text = '<b>回合指示器: {}</b>\n\n'.format(self.count + 1)
-        actors_count = len(self.actors)
-        for i in range(actors_count):
-            value, name = self.actors[i]
-            is_current = self.count % actors_count == i
-            if is_current:
-                text += '• {} ({}) ← 当前\n'.format(name, value)
-            else:
-                text += '◦ {} ({})\n'.format(name, value)
-
-        if isinstance(query, telegram.CallbackQuery):
-            try:
-                query.edit_message_text(text, parse_mode='HTML', reply_markup=self.reply_markup)
-            except TelegramError:
-                query.answer('出了点小问题')
-        elif isinstance(bot, telegram.Bot):
-            bot.edit_message_text(
-                text,
-                chat_id=self.chat_id,
-                message_id=self.message_id,
-                parse_mode='HTML',
-                reply_markup=self.reply_markup
-            )
+ROUND_REPLY_MARKUP = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("下一轮", callback_data='round:next'),
+        InlineKeyboardButton("上一轮", callback_data='round:prev'),
+    ],
+    [
+        InlineKeyboardButton("删除当前", callback_data='round:remove'),
+        InlineKeyboardButton("结束", callback_data='round:finish'),
+    ]
+])
 
 
 class NotGm(Exception):
@@ -225,11 +115,73 @@ def get_temp_name(chat_id, user_id):
         return result.decode()
 
 
+def remove_round(chat_id):
+    try:
+        game_round = Round.objects.get(chat_id=chat_id)
+        message_id = game_round.message_id
+        game_round.delete()
+        return message_id
+    except models.ObjectDoesNotExist:
+        return None
+
+
+def refresh_round_message(game_round: Round, query=None, bot=None):
+    actors = game_round.get_actors()
+    counter = game_round.counter
+    text = '<b>回合指示器: {}</b>\n\n'.format(counter + 1)
+    actors_count = len(actors)
+    for i in range(actors_count):
+        actor = actors[i]
+        is_current = counter % actors_count == i
+        if is_current:
+            text += '• {} ({}) ← 当前\n'.format(actor.name, actor.value)
+        else:
+            text += '◦ {} ({})\n'.format(actor.name, actor.value)
+
+    if isinstance(query, telegram.CallbackQuery):
+        try:
+            query.edit_message_text(
+                text,
+                parse_mode='HTML',
+                reply_markup=ROUND_REPLY_MARKUP,
+                timeout=1,
+            )
+        except TelegramError as e:
+            try:
+                query.answer('出了点小问题: {}'.format(e))
+            except TelegramError:
+                pass
+    elif isinstance(bot, telegram.Bot):
+        bot.edit_message_text(
+            text,
+            chat_id=game_round.chat_id,
+            message_id=game_round.message_id,
+            parse_mode='HTML',
+            reply_markup=ROUND_REPLY_MARKUP
+        )
+
+
 def start_round(_, update: telegram.Update):
     message = update.message
     assert isinstance(message, telegram.Message)
-    game_round = Round(message.chat)
-    game_round.save()
+    chat = message.chat
+    text = '回合指示器\n\n没有人加入回合，使用 <code>.init [值]</code> 来加入回合'
+    message = chat.send_message(text, parse_mode='HTML', reply_markup=ROUND_REPLY_MARKUP)
+    message_id = message.message_id
+    chat_id = message.chat_id
+    bot = chat.bot
+    assert isinstance(bot, telegram.Bot)
+    try:
+        bot.pin_chat_message(chat.id, message.message_id, disable_notification=True)
+    except TelegramError:
+        pass
+    old_message = remove_round(chat_id)
+    Round.objects.create(chat_id=chat_id, message_id=message_id)
+    if old_message is not None:
+        try:
+            bot.delete_message(chat_id, old_message)
+        except TelegramError:
+            pass
 
 
 def set_name(_, update: telegram.Update, args, job_queue):
@@ -285,6 +237,47 @@ def roll_text(chat_id, text):
     return text
 
 
+def round_inline_callback(query: telegram.CallbackQuery, gm: bool):
+    game_round = Round.objects.filter(chat_id=query.message.chat_id).first()
+    if not isinstance(game_round, Round):
+        query.answer(show_alert=True, text='现在游戏没在回合状态之中')
+        return
+    method = str(query.data)
+    if method == 'round:next':
+        game_round.counter += 1
+        game_round.save()
+        refresh_round_message(game_round, query=query)
+    elif method == 'round:prev':
+        if game_round.counter > 0:
+            game_round.counter -= 1
+            refresh_round_message(game_round, query=query)
+            game_round.save()
+        else:
+            query.answer(text='已经是第一回合了')
+    elif method == 'round:remove':
+        if not gm:
+            raise NotGm()
+
+        actors = game_round.get_actors()
+        if len(actors) > 1:
+            current = actors[game_round.counter % len(actors)]
+            current.delete()
+            refresh_round_message(game_round, query=query)
+        else:
+            query.answer(show_alert=True, text='至少要有一位角色在回合中')
+    elif method == 'round:finish':
+        if not gm:
+            raise NotGm()
+        remove_round(game_round.chat_id)
+        query.edit_message_text('回合轮已结束')
+        if isinstance(query.bot, telegram.Bot):
+            try:
+                query.bot.unpin_chat_message(chat_id=game_round.chat_id)
+            except TelegramError:
+                pass
+    return
+
+
 @run_async
 def inline_callback(_, update):
     query = update.callback_query
@@ -294,11 +287,9 @@ def inline_callback(_, update):
     data = str(data)
     try:
         if data.startswith('round'):
-            game_round = Round.get(query.message.chat_id)
-            if not isinstance(game_round, Round):
-                query.answer(show_alert=True, text='现在游戏没在回合状态之中')
-                return
-            return game_round.inline_callback(query, gm)
+            with transaction.atomic():
+                round_inline_callback(query, gm)
+            return
         elif not gm:
             raise NotGm()
     except NotGm:
@@ -580,14 +571,13 @@ def handle_initiative(message: telegram.Message, job_queue, name: str, text: str
         usage = '用法： <code>.init [数字]</code> 或 <code>.init [角色名] = [数字]</code>'
         error_message(message, job_queue, usage)
         return
-    game_round = Round.get(message.chat_id)
+
+    game_round = Round.objects.filter(chat_id=message.chat_id).first()
     if not isinstance(game_round, Round):
         error_message(message, job_queue, '请先用 /round 指令开启回合轮')
-        return
-    game_round.add_actor(name, int(number))
-    game_round.save()
-    game_round.refresh(bot=message.bot)
-    message.delete()
+    Actor.objects.create(belong_id=message.chat_id, name=name, value=int(number))
+    refresh_round_message(game_round, bot=message.bot)
+    delete_message(message)
 
 
 def handle_lift(update: telegram.Update, job_queue):
