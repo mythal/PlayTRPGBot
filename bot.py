@@ -126,7 +126,7 @@ class Round:
                 self.refresh(query=query)
                 self.save()
             else:
-                query.answer(show_alert=True, text='已经是第 1 回合了')
+                query.answer(text='已经是第 1 回合了')
         elif method == 'round:remove':
             if not gm:
                 raise NotGm()
@@ -154,7 +154,10 @@ class Round:
                 text += '◦ {} ({})\n'.format(name, value)
 
         if isinstance(query, telegram.CallbackQuery):
-            query.edit_message_text(text, parse_mode='HTML', reply_markup=self.reply_markup)
+            try:
+                query.edit_message_text(text, parse_mode='HTML', reply_markup=self.reply_markup)
+            except TelegramError:
+                query.answer('出了点小问题')
         elif isinstance(bot, telegram.Bot):
             bot.edit_message_text(
                 text,
