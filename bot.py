@@ -11,11 +11,11 @@ from typing import Optional
 import django
 import telegram
 from dotenv import load_dotenv
-# from telegram.ext.dispatcher import run_async
 from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, JobQueue
+from telegram.ext.dispatcher import run_async
 
 import dice
 
@@ -121,15 +121,21 @@ class Round:
             self.refresh(query=query)
             self.save()
         elif method == 'round:prev':
-            self.prev()
-            self.refresh(query=query)
-            self.save()
+            if self.count > 0:
+                self.prev()
+                self.refresh(query=query)
+                self.save()
+            else:
+                query.answer(show_alert=True, text='已经是第 1 回合了')
         elif method == 'round:remove':
             if not gm:
                 raise NotGm()
-            self.remove_current()
-            self.refresh(query=query)
-            self.save()
+            if len(self.actors) > 1:
+                self.remove_current()
+                self.refresh(query=query)
+                self.save()
+            else:
+                query.answer(show_alert=True, text='至少要有一位角色在回合中')
         elif method == 'round:finish':
             if not gm:
                 raise NotGm()
@@ -197,8 +203,8 @@ def save(_, update, job_queue):
 def delete_message(message: telegram.Message):
     try:
         message.delete()
-    except telegram.error.TelegramError:
-        message.reply_text('删除消息失败，请检查一下 Bot 的权限设置')
+    except TelegramError:
+        message.reply_text('删除消息失败，请检查一下 bot 的权限设置')
 
 
 def bot_help(_, update):
@@ -276,6 +282,7 @@ def roll_text(chat_id, text):
     return text
 
 
+@run_async
 def inline_callback(_, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
@@ -380,12 +387,18 @@ def get_name_by_username(chat_id, username):
 def delay_delete_messages(bot: telegram.Bot, job):
     chat_id = job.context['chat_id']
     for message_id in job.context['message_id_list']:
-        bot.delete_message(chat_id, message_id)
+        try:
+            bot.delete_message(chat_id, message_id)
+        except TelegramError:
+            pass
 
 
 def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
     delete_time = 15
-    sent = message.reply_text('<b>[ERROR]</b> {}'.format(text), parse_mode='HTML')
+    try:
+        sent = message.reply_text('<b>[ERROR]</b> {}'.format(text), parse_mode='HTML')
+    except TelegramError:
+        return
     context = dict(
         chat_id=message.chat_id,
         message_id_list=(message.message_id, sent.message_id),
@@ -473,7 +486,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     reply_to_message_id = None
     reply_log = None
     target = message.reply_to_message
-    if isinstance(target, telegram.Message):
+    if isinstance(target, telegram.Message) and target.from_user.id == bot.id:
         reply_to_message_id = target.message_id
         reply_log = Log.objects.filter(chat=chat, message_id=reply_to_message_id).first()
     if isinstance(with_photo, telegram.PhotoSize):
@@ -599,16 +612,16 @@ def update_admin_job(bot, job):
     chat_id = job.context
     try:
         administrators = bot.get_chat_administrators(chat_id)
-        user_id_list = [member.user.id for member in administrators]
-        admin_set_key = 'chat:{}:admin_set'.format(chat_id)
-        redis.delete(admin_set_key)
-        if user_id_list:
-            redis.sadd(admin_set_key, *user_id_list)
-        else:
-            job.schedule_removal()
     except TelegramError:
         job.schedule_removal()
         return
+    user_id_list = [member.user.id for member in administrators]
+    admin_set_key = 'chat:{}:admin_set'.format(chat_id)
+    redis.delete(admin_set_key)
+    if user_id_list:
+        redis.sadd(admin_set_key, *user_id_list)
+    else:
+        job.schedule_removal()
 
 
 def save_username(chat_id, username=None, name=None):
@@ -616,6 +629,7 @@ def save_username(chat_id, username=None, name=None):
         redis.set('chat:{}:username:{}:name'.format(chat_id, username), name)
 
 
+@run_async
 def run_chat_job(_, update, job_queue):
     assert isinstance(job_queue, telegram.ext.JobQueue)
     if isinstance(update.message, telegram.Message):
@@ -629,7 +643,7 @@ def run_chat_job(_, update, job_queue):
         if not job:
             job_queue.run_repeating(
                 update_admin_job,
-                interval=8,
+                interval=30,
                 first=1,
                 context=chat_id,
                 name=job_name
@@ -639,6 +653,7 @@ def run_chat_job(_, update, job_queue):
 COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|init|hd|lift|sub|as)?\s*')
 
 
+@run_async
 def handle_message(bot, update, job_queue, lift=False):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -678,14 +693,19 @@ def handle_message(bot, update, job_queue, lift=False):
     elif command == 'init':
         handle_initiative(message, job_queue, name, rest)
     elif command in ('del', 'delete', 'edit', 'lift'):
+        reply_to = message.reply_to_message
         if not chat.recording:
             error_message(message, job_queue, '未在记录中，无法编辑消息')
+        elif not isinstance(reply_to, telegram.Message):
+            error_message(message, job_queue, '先需要回复一则消息')
+        elif command == 'lift':
+            handle_lift(update, job_queue)
+        elif reply_to.from_user.id != bot.id:
+            error_message(message, job_queue, '请回复 bot 发出的消息')
         elif command == 'del' or command == 'delete':
             handle_delete(message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, rest)
-        elif command == 'lift':
-            handle_lift(update, job_queue)
     else:
         handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
