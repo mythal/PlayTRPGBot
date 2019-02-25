@@ -13,6 +13,9 @@
                 {{ chat.description|linebreaks }}
             </section>
         {% endif %}
+        <section class="export">
+            <a href="export/json?password={{ password|urlencode }}">JSON</a>
+        </section>
         {% if chat.chat_set.count > 0 %}
             <section class="sub">
                 <h2>Sub</h2>

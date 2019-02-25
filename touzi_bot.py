@@ -469,6 +469,31 @@ def inline_query(_, update):
     update.inline_query.answer(results, cache_time=0)
 
 
+def dnd5e_modifiers(point: int):
+    result = point // 2 - 5
+    if result > 0:
+        return '+{}'.format(result)
+    else:
+        return str(result)
+
+
+def dnd5e_attributes(_, update: telegram.Update):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    d6 = Dice(6)
+    result = []
+    for _ in range(6):
+        roll_4 = d6.roll_n(4)
+        roll_4.sort()
+        point = sum(roll_4[1:])
+        result.append('{} ({})'.format(point, dnd5e_modifiers(point)))
+    text = '将下面六项数值自由分配到\n' \
+           '力量(STR) 敏捷(DEX) 体质(CON) ' \
+           '智力(INT) 感知(WIS) 魅力(CHA) 中\n\n' \
+           '{}'.format(', '.join(result))
+    message.reply_text(text)
+
+
 def error(_, update, err):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, err)
@@ -479,6 +504,7 @@ def main():
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler('r', command_roll, pass_args=True, pass_chat_data=True))
     dispatcher.add_handler(CommandHandler('coc7', coc7stats, pass_args=True))
+    dispatcher.add_handler(CommandHandler('dnd5e', dnd5e_attributes))
     dispatcher.add_handler(CommandHandler('coctrait', coc_trait))
     dispatcher.add_handler(CommandHandler('name', random_text('name'), pass_args=True))
     dispatcher.add_handler(CommandHandler('male', random_text('name_male'), pass_args=True))
