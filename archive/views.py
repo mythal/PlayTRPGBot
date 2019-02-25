@@ -1,8 +1,7 @@
 import csv
 import datetime
-from hashlib import sha256
 
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
 
 from .models import Chat
@@ -23,9 +22,10 @@ def chat(request, chat_id):
     current = get_object_or_404(Chat, id=chat_id)
     context = dict(chat=current)
     password = request.POST.get('password', '')
-    if not current.password or current.password == sha256(password.encode()).hexdigest():
+    context['password'] = password
+    if current.validate(password):
         context['logs'] = current.all_log()
-        return render(request, 'chat.html', context)
+        return render(request, 'chat.html', context, status=403)
     else:
         context['wrong_password'] = bool(password)
         return render(request, 'chat_password.html', context=context)
@@ -82,7 +82,10 @@ def json_export(_, current):
 def export(request, chat_id, method):
     now = datetime.datetime.now()
     current = get_object_or_404(Chat, id=chat_id)
+    if not current.validate(request.GET.get('password', '')):
+        return HttpResponseForbidden('Forbidden')
     filename = '{}-{}'.format(now.strftime('%y-%m-%d'), current.title)
+
     if method == 'csv':
         return csv_export(filename, current)
     elif method == 'json':

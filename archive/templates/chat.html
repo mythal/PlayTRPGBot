@@ -14,7 +14,7 @@
             </section>
         {% endif %}
         <section class="export">
-            <a href="export/json">JSON</a>
+            <a href="export/json?password={{ password|urlencode }}">JSON</a>
         </section>
         {% if chat.chat_set.count > 0 %}
             <section class="sub">

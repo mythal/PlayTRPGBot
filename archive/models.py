@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from hashlib import sha256
 
 from django.db import models
 
@@ -34,6 +35,12 @@ class Chat(models.Model):
 
     def all_log(self):
         return self.log_set.filter(deleted=False).order_by('created')
+
+    def validate(self, password):
+        if not self.password:
+            return True
+        else:
+            return self.password == sha256(password.encode()).hexdigest()
 
     def __str__(self):
         return self.title
