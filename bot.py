@@ -97,7 +97,10 @@ def delete_message(message: telegram.Message):
     try:
         message.delete()
     except TelegramError:
-        message.reply_text('删除消息失败，请检查一下 bot 的权限设置')
+        try:
+            message.reply_text('删除消息失败，请检查一下 bot 的权限设置')
+        except TelegramError:
+            pass
 
 
 def bot_help(_, update):
@@ -146,6 +149,8 @@ def refresh_round_message(game_round: Round, query=None, bot=None):
                 reply_markup=ROUND_REPLY_MARKUP,
                 timeout=1,
             )
+        except telegram.error.TimedOut:
+            pass
         except TelegramError as e:
             try:
                 query.answer('出了点小问题: {}'.format(e))
