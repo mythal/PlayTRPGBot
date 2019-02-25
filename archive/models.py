@@ -32,6 +32,9 @@ class Chat(models.Model):
     recording = models.BooleanField(default=True)
     password = models.CharField(max_length=512, default='')
 
+    def all_log(self):
+        return self.log_set.filter(deleted=False).order_by('created')
+
     def __str__(self):
         return self.title
 
@@ -50,6 +53,18 @@ class Log(models.Model):
     deleted = models.BooleanField(default=False)
     created = models.DateTimeField()
     modified = models.DateTimeField(auto_now=True)
+
+    def reply_message_id(self):
+        if self.reply:
+            return self.reply.message_id
+        else:
+            return None
+
+    def media_url(self):
+        if self.media:
+            return self.media.url
+        else:
+            return ''
 
     def __str__(self):
         name = self.character_name or self.user_fullname or 'SYSTEM'

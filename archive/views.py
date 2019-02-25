@@ -1,5 +1,8 @@
+import csv
+import datetime
 from hashlib import sha256
 
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
 
 from .models import Chat
@@ -21,8 +24,68 @@ def chat(request, chat_id):
     context = dict(chat=current)
     password = request.POST.get('password', '')
     if not current.password or current.password == sha256(password.encode()).hexdigest():
-        context['logs'] = current.log_set.filter(deleted=False).order_by('created')
+        context['logs'] = current.all_log()
         return render(request, 'chat.html', context)
     else:
         context['wrong_password'] = bool(password)
         return render(request, 'chat_password.html', context=context)
+
+
+def csv_export(filename, current):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}.csv"' \
+        .format(filename)
+
+    writer = csv.writer(response)
+    writer.writerow((
+        'Message ID',
+        'User Fullname',
+        'Character Name',
+        'Type',
+        'Content',
+        'Media',
+        'Is GM',
+        'Date',
+    ))
+    for log in current.all_log():
+        writer.writerow((
+            str(log.message_id),
+            log.user_fullname,
+            log.character_name,
+            log.get_kind_display(),
+            log.content,
+            log.media_url(),
+            str(log.gm),
+            log.created.strftime('%y-%m-%d %H:%M:%S'),
+        ))
+
+    return response
+
+
+def json_export(_, current):
+    export_data = []
+    for log in current.all_log():
+        export_data.append({
+            'message_id': log.message_id,
+            'user_fullname': log.user_fullname,
+            'character_name': log.character_name,
+            'type': log.get_kind_display(),
+            'content': log.content,
+            'media': log.media_url(),
+            'is_gm': log.gm,
+            'created': log.created,
+            'reply_to': log.reply_message_id(),
+        })
+    return JsonResponse(export_data, safe=False)
+
+
+def export(request, chat_id, method):
+    now = datetime.datetime.now()
+    current = get_object_or_404(Chat, id=chat_id)
+    filename = '{}-{}'.format(now.strftime('%y-%m-%d'), current.title)
+    if method == 'csv':
+        return csv_export(filename, current)
+    elif method == 'json':
+        return json_export(filename, current)
+    else:
+        return HttpResponseBadRequest('Bad Request')
