@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load staticfiles %}
 {% block title %}{{ chat.title }} - PlayTRPG{% endblock %}
 {% block header %}
     <h1>{{ chat.title }}</h1>
@@ -6,7 +7,7 @@
 {% endblock %}
 {% block main %}
 
-    <article id="logs">
+    <article id="log-list">
         {% if chat.description %}
             <section class="description">
                 <h2>Description</h2>
@@ -14,14 +15,15 @@
             </section>
         {% endif %}
         <section class="export">
-            <a href="export/json?password={{ password|urlencode }}">JSON</a>
+            <a href="{% url 'export' chat.id 'JSON' %}">JSON</a>
+            <a href="{% url 'export' chat.id 'CSV' %}">CSV</a>
         </section>
         {% if chat.chat_set.count > 0 %}
             <section class="sub">
                 <h2>Sub</h2>
                 <ul>
                     {% for child in chat.chat_set.all %}
-                        <li><a href="{% url 'logs' child.id %}">{{ child.title }}</a></li>
+                        <li><a href="{% url 'chat' child.id %}">{{ child.title }}</a></li>
                     {% endfor %}
                 </ul>
             </section>
@@ -29,7 +31,7 @@
     <h2>Log</h2>
         <table>
             <tbody>
-    {% for log in logs %}{% with kind=log.get_kind_display %}
+            {% for log in chat.all_log %}{% with kind=log.get_kind_display %}
         <tr class="log {{ kind | lower }}{% if log.gm %} gm{% endif %}" id="message-{{ log.message_id }}">
             {% if kind == 'NORMAL' %}
                 <td class="character">{{ log.character_name }}:</td>
@@ -65,19 +67,5 @@
             </tbody>
         </table>
 </article>
-    <script>
-        let reply_list = document.querySelectorAll('.reply a');
-
-        function highlight() {
-            let link = document.querySelector(this.getAttribute('href'));
-            link.className = link.className.replace(' highlight', '');
-            setTimeout(() => {
-                link.className += ' highlight';
-            }, 200);
-        }
-
-        for (let i = 0; i < reply_list.length; i++) {
-            reply_list[i].addEventListener('click', highlight);
-        }
-    </script>
+    <script src="{% static 'chat.js' %}"></script>
 {% endblock %}

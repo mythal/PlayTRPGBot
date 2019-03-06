@@ -31,7 +31,7 @@ code {
     border: 1px solid rgb(111, 194, 157);
 }
 
-#logs > table {
+#log-list > table {
     width: 100%;
 }
 
