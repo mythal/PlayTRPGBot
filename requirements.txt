@@ -1,4 +1,4 @@
-Django
+Django>=2.1
 python-dotenv
 python-telegram-bot
 psycopg2-binary

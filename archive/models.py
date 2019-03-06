@@ -36,6 +36,9 @@ class Chat(models.Model):
     def all_log(self):
         return self.log_set.filter(deleted=False).order_by('created')
 
+    def log_count(self):
+        return self.all_log().count()
+
     def validate(self, password):
         if not self.password:
             return True

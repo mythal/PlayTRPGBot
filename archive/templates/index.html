@@ -5,15 +5,15 @@
 <article>
     <h2>Index</h2>
     <ul>
-        {% for chat in chats %}
+        {% for chat in chats %}{% with log_count=chat.log_count %}{% if log_count > 0 %}
             <li>
                 <div>
                     {% if chat.password %}<span class="has_password">🔒</span>{% endif %}
                     <a href="{% url 'chat' chat.id %}">{{ chat.title }}</a>
-                    <span class="log-count">({{ chat.log_count }})</span>
+                    <span class="log-count">({{ log_count }})</span>
                 </div>
             </li>
-        {% endfor %}
+        {% endif %}{% endwith %}{% endfor %}
     </ul>
 </article>
 {% endblock %}
