@@ -62,11 +62,15 @@ class NotGm(Exception):
     pass
 
 
+def is_valid_chat_type(chat: telegram.Chat):
+    return isinstance(chat, telegram.Chat) and chat.type in ('supergroup', 'group')
+
+
 def start(_, update, job_queue):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
-    if message.chat.type != 'supergroup':
+    if not is_valid_chat_type(message.chat):
         message.reply_text(START_TEXT, parse_mode='Markdown')
         return
     chat = get_chat(message.chat)
@@ -81,7 +85,7 @@ def start(_, update, job_queue):
 def save(_, update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
-    if message.chat.type != 'supergroup':
+    if not is_valid_chat_type(message.chat):
         return
     chat = get_chat(message.chat)
     if chat.recording:
@@ -632,8 +636,7 @@ def run_chat_job(_, update, job_queue):
     assert isinstance(job_queue, telegram.ext.JobQueue)
     if isinstance(update.message, telegram.Message):
         message = update.message
-        chat_type = message.chat.type
-        if chat_type not in ('supergroup', 'group'):
+        if not is_valid_chat_type(message.chat):
             return
         chat_id = message.chat_id
         job_name = 'chat:{}'.format(chat_id)
@@ -667,7 +670,7 @@ def handle_message(bot, update, job_queue, lift=False):
     message_match = COMMAND_REGEX.match(text)
     if not message_match:
         return
-    elif message.chat.type != 'supergroup' and message.chat.type != 'group':
+    elif not is_valid_chat_type(message.chat):
         message.reply_text('只能在群中使用我哦')
         return
     elif not isinstance(message.from_user, telegram.User):
