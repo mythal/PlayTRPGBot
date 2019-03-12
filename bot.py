@@ -531,11 +531,11 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     delete_message(message)
 
 
-def handle_delete(message: telegram.Message, job_queue):
+def handle_delete(chat, message: telegram.Message, job_queue):
     target = message.reply_to_message
     if isinstance(target, telegram.Message):
         user_id = message.from_user.id
-        log = Log.objects.filter(message_id=target.message_id).first()
+        log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
         if log is None:
             error_message(message, job_queue, '这条记录不存在于数据库')
         elif log.user_id == user_id or is_gm(message.chat_id, user_id):
@@ -704,7 +704,7 @@ def handle_message(bot, update, job_queue, lift=False):
         elif reply_to.from_user.id != bot.id:
             error_message(message, job_queue, '请回复 bot 发出的消息')
         elif command == 'del' or command == 'delete':
-            handle_delete(message, job_queue)
+            handle_delete(chat, message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, rest)
     else:
