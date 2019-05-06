@@ -4,6 +4,7 @@ from django.db import models
 class Round(models.Model):
     chat_id = models.BigIntegerField(primary_key=True)
     counter = models.IntegerField(default=0)
+    round_counter = models.IntegerField(default=1)
     message_id = models.BigIntegerField()
 
     def get_actors(self):

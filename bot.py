@@ -49,8 +49,8 @@ start_file.close()
 
 ROUND_REPLY_MARKUP = InlineKeyboardMarkup([
     [
-        InlineKeyboardButton("下一轮", callback_data='round:next'),
-        InlineKeyboardButton("上一轮", callback_data='round:prev'),
+        InlineKeyboardButton("下一回合", callback_data='round:next'),
+        InlineKeyboardButton("上一回合", callback_data='round:prev'),
     ],
     [
         InlineKeyboardButton("删除当前", callback_data='round:remove'),
@@ -135,12 +135,11 @@ def remove_round(chat_id):
 
 def refresh_round_message(game_round: Round, query=None, bot=None):
     actors = game_round.get_actors()
+    game_round.counter = game_round.counter % len(actors)
     counter = game_round.counter
-    text = '<b>回合指示器: {}</b>\n\n'.format(counter + 1)
-    actors_count = len(actors)
-    for i in range(actors_count):
-        actor = actors[i]
-        is_current = counter % actors_count == i
+    text = '<b>回合指示器</b>\n\n第 {} 轮\n\n'.format(game_round.round_counter)
+    for index, actor in enumerate(actors):
+        is_current = counter == index
         if is_current:
             text += '• {} ({}) ← 当前\n'.format(actor.name, actor.value)
         else:
@@ -253,17 +252,27 @@ def round_inline_callback(query: telegram.CallbackQuery, gm: bool):
         query.answer(show_alert=True, text='现在游戏没在回合状态之中')
         return
     method = str(query.data)
+    actors = game_round.get_actors()
     if method == 'round:next':
-        game_round.counter += 1
+        next_count = game_round.counter + 1
+        if next_count >= len(actors):
+            next_count = 0
+            game_round.round_counter += 1
+        game_round.counter = next_count
         game_round.save()
         refresh_round_message(game_round, query=query)
     elif method == 'round:prev':
-        if game_round.counter > 0:
-            game_round.counter -= 1
-            refresh_round_message(game_round, query=query)
-            game_round.save()
-        else:
-            query.answer(text='已经是第一回合了')
+        prev_count = game_round.counter - 1
+        if prev_count < 0:
+            if game_round.round_counter <= 1:
+                query.answer(text='已经是第一回合了')
+                return
+            else:
+                prev_count = len(actors) - 1
+                game_round.round_counter -= 1
+        game_round.counter = prev_count
+        refresh_round_message(game_round, query=query)
+        game_round.save()
     elif method == 'round:remove':
         if not gm:
             raise NotGm()
