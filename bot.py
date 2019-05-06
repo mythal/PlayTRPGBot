@@ -3,6 +3,7 @@ import io
 import logging
 import os
 import pickle
+import secrets
 import re
 import uuid
 from hashlib import sha256
@@ -315,14 +316,92 @@ def inline_callback(_, update):
     )
 
 
-def handle_roll(message: telegram.Message, name: str, text: str,
-                job_queue: JobQueue, hide=False):
+def handle_coc_roll(
+        message: telegram.Message,
+        name: str, text: str, job_queue: JobQueue, hide=False, modifier=None):
+    """
+    Call of Cthulhu
+    """
+    text = text.strip()
+    numbers = re.findall(r'\d{1,2}', text)
+    if len(numbers) == 0:
+        return error_message(message, job_queue, '格式错误。需要写技能值。')
+
+    rolled_list = [secrets.randbelow(100) + 1]
+    rolled = rolled_list[0]
+    modification = ''
+    skill_number = int(numbers[0])
+    if modifier in ('+', '-'):
+        extra = 1
+        if len(numbers) > 1:
+            extra = int(numbers[0])
+            skill_number = int(numbers[1])
+        for _ in range(extra):
+            rolled_list.append(secrets.randbelow(100) + 1)
+        if modifier == '+':
+            rolled = min(rolled_list)
+            modification += '奖励骰:'
+        elif modifier == '-':
+            rolled = max(rolled_list)
+            modification += '惩罚骰:'
+        modification += '<code>[{}]</code> '.format(', '.join(map(str, rolled_list)))
+    half_skill_number = skill_number >> 1
+    skill_number_divide_5 = skill_number // 5
+    if rolled == 1:
+        remark = '大成功'
+    elif rolled <= skill_number_divide_5:
+        remark = '极难成功'
+    elif rolled <= half_skill_number:
+        remark = '困难成功'
+    elif rolled <= skill_number:
+        remark = '成功'
+    elif rolled == 100:
+        remark = '大失败'
+    elif rolled >= 95 and skill_number < 50:
+        remark = '大失败'
+    else:
+        remark = '失败'
+    result_text = '{} → <code>{}</code> {} {}'.format(text, rolled, remark, modification)
+    handle_roll(message, name, result_text, job_queue, hide)
+
+
+LOOP_ROLL_REGEX = re.compile(r'^\s*(\d{1,2})\s*')
+
+
+def handle_loop_roll(message: telegram.Message, name: str, text: str, job_queue: JobQueue, hide=False):
+    """
+    Tales from the Loop
+    """
+    text = text.strip()
+    roll_match = LOOP_ROLL_REGEX.match(text)
+    if not roll_match:
+        return error_message(message, job_queue, '格式错误。需要 <code>.loop [个数，最多两位数] [可选的描述]</code>')
+    number = int(roll_match.group(1))
+    if number == 0:
+        return error_message(message, job_queue, '错误，不能 roll 0 个骰子')
+    counter = 0
+    result_list = []
+    for _ in range(number):
+        result = secrets.randbelow(6) + 1
+        result_list.append(str(result))
+        if result == 6:
+            counter += 1
+    description = text[roll_match.end():]
+    result_text = '<code>({}/{}) [{}]</code> {}'.format(counter, number, ', '.join(result_list), description)
+    handle_roll(message, name, result_text, job_queue, hide)
+
+
+def handle_normal_roll(message: telegram.Message, name: str, text: str, job_queue: JobQueue, hide=False):
     if text.strip() == '':
         text = 'd'
     try:
-        result_text = roll_text(message.chat_id, text)
+        _, result_text = dice.roll(text, get_default_dice_face(message.chat_id))
     except dice.RollError as e:
         return error_message(message, job_queue, e.args[0])
+    handle_roll(message, name, result_text, job_queue, hide)
+
+
+def handle_roll(message: telegram.Message, name: str, result_text: str, job_queue: JobQueue, hide=False):
     kind = LogKind.ROLL.value
     if hide:
         roll_id = str(uuid.uuid4())
@@ -648,7 +727,7 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|init|hd|lift|sub|as)?\s*')
+COMMAND_REGEX = re.compile(r'^[.。](me\b|rh?|loh?|coc[+\-]?h?|del|delete|edit|init|hd|lift|as\b)?\s*')  # noqa
 
 
 @run_async
@@ -680,14 +759,25 @@ def handle_message(bot, update, job_queue, lifted=False):
         return
     rest = text[message_match.end():]
 
-    if command == 'r' or command == 'roll':
-        handle_roll(message, name, rest, job_queue)
+    if command in ('r', 'rh', 'lo', 'loh', 'coc', 'coch', 'coc+', 'coc-', 'coc+h', 'coc-h'):
+        hide = command[-1] == 'h'
+        if command.startswith('lo'):
+            handle_loop_roll(message, name, rest, job_queue, hide)
+        elif command.startswith('coc'):
+            modifier = None
+            if '+' in command:
+                modifier = '+'
+            elif '-' in command:
+                modifier = '-'
+            handle_coc_roll(message, name, rest, job_queue, hide, modifier)
+        else:
+            handle_normal_roll(message, name, rest, job_queue, hide)
+    elif command == 'hd':
+        handle_normal_roll(message, name, rest, job_queue, hide=True)
     elif command == 'me':
         handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
     elif command == 'as':
         handle_as_say(bot, chat, job_queue, message, rest, with_photo=with_photo)
-    elif command == 'hd':
-        handle_roll(message, name, rest, job_queue, hide=True)
     elif command == 'init':
         handle_initiative(message, job_queue, name, rest)
     elif command in ('del', 'delete', 'edit', 'lift'):
