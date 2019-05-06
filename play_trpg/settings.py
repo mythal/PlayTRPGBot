@@ -185,4 +185,4 @@ LOGGING = {
 
 for path in [STATIC_ROOT, MEDIA_ROOT, LOG_ROOT]:
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.makedirs(path)

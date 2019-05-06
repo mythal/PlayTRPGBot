@@ -14,19 +14,26 @@ def index(request):
     ))
 
 
+def is_allow(session, chat_id):
+    session_key = 'chat:{}:allow'.format(chat_id)
+    return session_key in session
+
+
+def allow(session, chat_id):
+    session_key = 'chat:{}:allow'.format(chat_id)
+    session[session_key] = True
+
+
 def chat(request, chat_id):
     current = get_object_or_404(Chat, id=chat_id)
-    session_key = 'chat:{}:allow'.format(chat_id)
     if request.method == 'POST':
         form = forms.Password(request.POST)
         if form.is_valid() and current.validate(form.cleaned_data['password']):
-            request.session[session_key] = True
+            allow(request.session, chat_id)
     else:
         form = forms.Password()
 
-    authenticated = session_key in request.session
-
-    if not current.password or authenticated:
+    if not current.password or is_allow(request.session, chat_id):
         return render(request, 'chat.html', dict(chat=current))
     else:
         return render(request, 'chat_password.html', dict(chat=current, form=form))
@@ -35,7 +42,7 @@ def chat(request, chat_id):
 def export(request, chat_id, method: str):
     now = datetime.datetime.now()
     current = get_object_or_404(Chat, id=chat_id)
-    if current.password and 'chat:{}:allow'.format(chat_id) not in request.session:
+    if current.password and not is_allow(request.session, chat_id):
         return HttpResponseForbidden('Request Forbidden')
 
     filename = '{}-{}'.format(now.strftime('%y-%m-%d'), current.title)

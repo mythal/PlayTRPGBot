@@ -459,7 +459,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     text = USERNAME_REGEX.sub(name_resolve, text)
     kind = LogKind.NORMAL.value
 
-    if is_empty_message(text):
+    if is_empty_message(text) and not with_photo:
         error_message(message, job_queue, '不能有空消息')
         return
     elif ME_REGEX.search(text):
@@ -597,7 +597,7 @@ def handle_lift(update: telegram.Update, job_queue):
     elif reply_to.from_user.id == user_id or is_gm(message.chat_id, user_id):
         update.message = reply_to
         delete_message(update.message)
-        return handle_message(message.bot, update, job_queue, lift=True)
+        return handle_message(message.bot, update, job_queue, lifted=True)
     else:
         return error_message(message, job_queue, '你只能转换自己的消息，GM 能转换任何人的消息')
 
@@ -652,7 +652,7 @@ COMMAND_REGEX = re.compile(r'^[.。](me\b|r|roll|del|delete|edit\b|init|hd|lift|
 
 
 @run_async
-def handle_message(bot, update, job_queue, lift=False):
+def handle_message(bot, update, job_queue, lifted=False):
     message = update.message
     assert isinstance(message, telegram.Message)
     with_photo = handle_photo(message)
@@ -662,7 +662,7 @@ def handle_message(bot, update, job_queue, lift=False):
         text = message.text_html_urled
     if not isinstance(text, str):
         return
-    elif lift:
+    elif lifted:
         text = '.' + text
     message_match = COMMAND_REGEX.match(text)
     if not message_match:

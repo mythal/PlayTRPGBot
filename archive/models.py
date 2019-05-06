@@ -56,13 +56,14 @@ class Log(models.Model):
     user_fullname = models.CharField('User Full Name', max_length=128, blank=True)
     character_name = models.CharField('Character', max_length=128, blank=True)
     kind = models.IntegerField(choices=choice(LogKind), default=LogKind.NORMAL.value)
-    content = models.TextField()
+    content = models.TextField(default='', blank=True, null=False)
     media = models.FileField(upload_to='uploads/%Y/%m/%d/', blank=True)
     gm = models.BooleanField('GM', default=False)
     reply = models.ForeignKey('Log', on_delete=models.SET_NULL, null=True, blank=True)
     deleted = models.BooleanField(default=False)
     created = models.DateTimeField()
     modified = models.DateTimeField(auto_now=True)
+    tag = models.ManyToManyField('Tag')
 
     def reply_message_id(self):
         if self.reply:
@@ -79,3 +80,11 @@ class Log(models.Model):
     def __str__(self):
         name = self.character_name or self.user_fullname or 'SYSTEM'
         return '{} - {} - {}'.format(self.chat.title, name, self.id)
+
+
+class Tag(models.Model):
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+    def __str__(self):
+        return self.name
