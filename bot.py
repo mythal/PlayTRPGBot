@@ -647,7 +647,7 @@ def handle_replace(bot, chat, job_queue, message: telegram.Message, text: str):
     if not isinstance(target, telegram.Message):
         return error_message(message, job_queue, '回复需要编辑的记录')
     try:
-        [old, new] = text.split('/')
+        [old, new] = filter(lambda x: x != '', text.split('/'))
     except ValueError:
         return error_message(message, job_queue, '请用<code>/</code>分开需要替换的两部分，如 <code>苹果/香蕉</code>')
     assert isinstance(message.from_user, telegram.User)
