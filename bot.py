@@ -642,6 +642,27 @@ def handle_delete(chat, message: telegram.Message, job_queue):
         error_message(message, job_queue, '回复需要删除的记录')
 
 
+def handle_replace(bot, chat, job_queue, message: telegram.Message, text: str):
+    target = message.reply_to_message
+    if not isinstance(target, telegram.Message):
+        return error_message(message, job_queue, '回复需要编辑的记录')
+    try:
+        [old, new] = text.split('/')
+    except ValueError:
+        return error_message(message, job_queue, '请用<code>/</code>分开需要替换的两部分，如 <code>苹果/香蕉</code>')
+    assert isinstance(message.from_user, telegram.User)
+    user_id = message.from_user.id
+    log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
+    text = log.content.replace(old, new)
+    if log is None:
+        error_message(message, job_queue, '找不到对应的消息')
+    elif log.user_id == user_id:
+        handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
+        delete_message(message)
+    else:
+        error_message(message, job_queue, '你没有编辑这条消息的权限')
+
+
 def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
     target = message.reply_to_message
     if not isinstance(target, telegram.Message):
@@ -808,10 +829,10 @@ def handle_message(bot, update, job_queue, lifted=False):
         save_username(chat.chat_id, message.from_user.username, name)
         return
 
-    edit_command_matched = re.compile(r'^(del|edit|lift)\s*').match(text)
+    edit_command_matched = re.compile(r'^(del|edit|lift|s)\b').match(text)
     if edit_command_matched:
         command = edit_command_matched.group(1)
-        rest = text[edit_command_matched.end():]
+        rest = text[edit_command_matched.end():].strip()
         reply_to = message.reply_to_message
         if not chat.recording:
             error_message(message, job_queue, '未在记录中，无法编辑消息')
@@ -825,7 +846,10 @@ def handle_message(bot, update, job_queue, lifted=False):
             handle_delete(chat, message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, rest)
-    handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
+        elif command == 's':
+            handle_replace(bot, chat, job_queue, message, rest)
+    else:
+        handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
 
 
