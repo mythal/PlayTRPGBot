@@ -330,11 +330,12 @@ def inline_callback(_, update):
 
 
 def handle_coc_roll(
-        message: telegram.Message,
-        name: str, text: str, job_queue: JobQueue, hide=False, modifier=None):
+        message: telegram.Message, command: str,
+        name: str, text: str, job_queue: JobQueue, **_):
     """
     Call of Cthulhu
     """
+    hide = command.find('h') != -1
     text = text.strip()
     numbers = re.findall(r'\d{1,2}', text)
     if len(numbers) == 0:
@@ -344,7 +345,9 @@ def handle_coc_roll(
     rolled = rolled_list[0]
     modification = ''
     skill_number = int(numbers[0])
-    if modifier in ('+', '-'):
+    modifier_matched = re.search('[+-]', command)
+    if modifier_matched:
+        modifier = modifier_matched.group(0)
         extra = 1
         if len(numbers) > 1:
             extra = int(numbers[0])
@@ -374,17 +377,18 @@ def handle_coc_roll(
         remark = '大失败'
     else:
         remark = '失败'
-    result_text = '{} → <code>{}</code> {} {}'.format(text, rolled, remark, modification)
+    result_text = '{} → <code>{}</code> {}\n\n{}'.format(text, rolled, remark, modification)
     handle_roll(message, name, result_text, job_queue, hide)
 
 
 LOOP_ROLL_REGEX = re.compile(r'^\s*(\d{1,2})\s*')
 
 
-def handle_loop_roll(message: telegram.Message, name: str, text: str, job_queue: JobQueue, hide=False):
+def handle_loop_roll(message: telegram.Message, command: str, name: str, text: str, job_queue: JobQueue, **_):
     """
     Tales from the Loop
     """
+    hide = command[-1] == 'h'
     text = text.strip()
     roll_match = LOOP_ROLL_REGEX.match(text)
     if not roll_match:
@@ -404,7 +408,8 @@ def handle_loop_roll(message: telegram.Message, name: str, text: str, job_queue:
     handle_roll(message, name, result_text, job_queue, hide)
 
 
-def handle_normal_roll(message: telegram.Message, name: str, text: str, job_queue: JobQueue, hide=False):
+def handle_normal_roll(message: telegram.Message, command: str, name: str, text: str, job_queue: JobQueue, **_):
+    hide = command[-1] == 'h'
     if text.strip() == '':
         text = 'd'
     try:
@@ -513,7 +518,7 @@ AS_PATTERN = re.compile(r'^\s*([^;]+)[;；]\s*')
 
 
 def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
-                  text: str, with_photo=None):
+                  text: str, with_photo=None, **_):
     user_id = message.from_user.id
     match = AS_PATTERN.match(text)
     if match:
@@ -657,7 +662,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
 INITIATIVE_REGEX = re.compile(r'^(.+)=\s*(\d{1,4})$')
 
 
-def handle_initiative(message: telegram.Message, job_queue, name: str, text: str):
+def handle_initiative(message: telegram.Message, job_queue, name: str, text: str, **_):
     text = text.strip()
     match = INITIATIVE_REGEX.match(text)
     number = text
@@ -739,7 +744,14 @@ def run_chat_job(_, update, job_queue):
             )
 
 
-COMMAND_REGEX = re.compile(r'^[.。](me\b|rh?|loh?|coc[+\-]?h?|del|delete|edit|init|hd|lift|as\b)?\s*')  # noqa
+def split(pattern, text):
+    result = re.match(pattern, text)
+    if result is None:
+        return None
+    else:
+        command = result.group(1)
+        rest = text[result.end():]
+        return command, rest
 
 
 @run_async
@@ -755,44 +767,51 @@ def handle_message(bot, update, job_queue, lifted=False):
         return
     elif lifted:
         text = '.' + text
-    message_match = COMMAND_REGEX.match(text)
-    if not message_match:
+    if not text.startswith(('.', '。')):
         return
-    elif not is_valid_chat_type(message.chat):
+    text = text[1:]
+    if not is_valid_chat_type(message.chat):
         message.reply_text('只能在群中使用我哦')
         return
     elif not isinstance(message.from_user, telegram.User):
         return
-    command = message_match.group(1)
     chat = get_chat(message.chat)
     name = get_name(message)
     if not name:
         error_message(message, job_queue, '请先使用 <code>/name [你的角色名]</code> 设置角色名')
         return
-    rest = text[message_match.end():]
 
-    if command in ('r', 'rh', 'lo', 'loh', 'coc', 'coch', 'coc+', 'coc-', 'coc+h', 'coc-h'):
-        hide = command[-1] == 'h'
-        if command.startswith('lo'):
-            handle_loop_roll(message, name, rest, job_queue, hide)
-        elif command.startswith('coc'):
-            modifier = None
-            if '+' in command:
-                modifier = '+'
-            elif '-' in command:
-                modifier = '-'
-            handle_coc_roll(message, name, rest, job_queue, hide, modifier)
-        else:
-            handle_normal_roll(message, name, rest, job_queue, hide)
-    elif command == 'hd':
-        handle_normal_roll(message, name, rest, job_queue, hide=True)
-    elif command == 'me':
-        handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
-    elif command == 'as':
-        handle_as_say(bot, chat, job_queue, message, rest, with_photo=with_photo)
-    elif command == 'init':
-        handle_initiative(message, job_queue, name, rest)
-    elif command in ('del', 'delete', 'edit', 'lift'):
+    handlers = [
+        (re.compile(r'^(rh?)\b'), handle_normal_roll),
+        (re.compile(r'^(loh?)\b'), handle_loop_roll),
+        (re.compile(r'^(coch?[+\-]?h?)\s*'), handle_coc_roll),
+        (re.compile(r'^(init)\b'), handle_initiative),
+        (re.compile(r'^(as)\b'), handle_as_say),
+    ]
+
+    for pattern, handler in handlers:
+        result = split(pattern, text)
+        if not result:
+            continue
+        command, rest = result
+        rest = rest.strip()
+        handler(
+            bot=bot,
+            chat=chat,
+            command=command,
+            text=rest,
+            name=name,
+            message=message,
+            job_queue=job_queue,
+            with_photo=with_photo,
+        )
+        save_username(chat.chat_id, message.from_user.username, name)
+        return
+
+    edit_command_matched = re.compile(r'^(del|edit|lift)\s*').match(text)
+    if edit_command_matched:
+        command = edit_command_matched.group(1)
+        rest = text[edit_command_matched.end():]
         reply_to = message.reply_to_message
         if not chat.recording:
             error_message(message, job_queue, '未在记录中，无法编辑消息')
@@ -802,12 +821,11 @@ def handle_message(bot, update, job_queue, lifted=False):
             handle_lift(update, job_queue)
         elif reply_to.from_user.id != bot.id:
             error_message(message, job_queue, '请回复 bot 发出的消息')
-        elif command == 'del' or command == 'delete':
+        elif command == 'del':
             handle_delete(chat, message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, rest)
-    else:
-        handle_say(bot, chat, job_queue, message, name, rest, with_photo=with_photo)
+    handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
     save_username(chat.chat_id, message.from_user.username, name)
 
 
