@@ -544,6 +544,8 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                name: str, text: str, edit_log=None, with_photo=None):
     user_id = message.from_user.id
     gm = is_gm(message.chat_id, user_id)
+    if text.startswith('me'):
+        text = '.' + text
 
     # process input text
     def name_resolve(match):
