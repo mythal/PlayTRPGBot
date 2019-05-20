@@ -66,7 +66,7 @@ class Dice(Symbol):
             result = [1 for _ in range(counter)]
         else:
             result = [secrets.randbelow(face) + 1 for _ in range(counter)]
-        if len(result) > 6:
+        if len(result) > 16:
             result_text = '={...}'
         elif counter < 2:
             result_text = ''

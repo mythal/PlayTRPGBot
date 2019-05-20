@@ -25,7 +25,7 @@ load_dotenv()
 django.setup()
 
 from archive.models import Chat, Log, LogKind  # noqa
-from game.models import Round, Actor  # noqa
+from game.models import Round, Actor, Player  # noqa
 
 
 # Enable logging
@@ -78,7 +78,7 @@ def start(_, update, job_queue):
     if not chat.recording:
         chat.recording = True
         chat.save()
-        message.chat.send_message('已重新开始记录，输入 /save 告一段落')
+        message.chat.send_message('#start 已重新开始记录，输入 /save 告一段落')
     else:
         error_message(message, job_queue, '已经正在记录了')
 
@@ -93,7 +93,7 @@ def save(_, update, job_queue):
         chat.recording = False
         chat.save_date = datetime.datetime.now()
         chat.save()
-        message.chat.send_message('告一段落，在 /start 前我不会再记录')
+        message.chat.send_message('#save 告一段落，在 /start 前我不会再记录')
     else:
         error_message(message, job_queue, '已经停止记录了')
 
@@ -110,17 +110,20 @@ def delete_message(message: telegram.Message):
 
 def bot_help(_, update):
     """Send a message when the command /help is issued."""
-    update.message.reply_text(HELP_TEXT, parse_mode='Markdown')
+    update.message.reply_text(HELP_TEXT, parse_mode='HTML')
 
 
 def set_temp_name(chat_id, user_id, temp_name):
-    redis.set('chat:{}:user:{}:name:temp'.format(chat_id, user_id), temp_name.encode())
+    player = Player.objects.filter(chat_id=chat_id, user_id=user_id).first()
+    if player:
+        player.temp_character_name = temp_name
+        player.save()
 
 
 def get_temp_name(chat_id, user_id):
-    result = redis.get('chat:{}:user:{}:name:temp'.format(chat_id, user_id))
-    if result:
-        return result.decode()
+    player = Player.objects.filter(chat_id=chat_id, user_id=user_id).first()
+    if player:
+        return player.temp_character_name or ''
 
 
 def remove_round(chat_id):
@@ -193,7 +196,25 @@ def start_round(_, update: telegram.Update):
             pass
 
 
-def set_name(_, update: telegram.Update, args, job_queue):
+def create_player(bot: telegram.Bot, message: telegram.Message, character_name: str) -> Player:
+    assert isinstance(message.from_user, telegram.User)
+    administrators = bot.get_chat_administrators(message.chat_id, timeout=250)
+    is_admin = False
+    for admin in administrators:
+        if message.from_user.id == admin.user.id:
+            is_admin = True
+            break
+    player, created = Player.objects.update_or_create(
+        chat_id=message.chat_id,
+        user_id=message.from_user.id,
+        character_name=character_name,
+        full_name=message.from_user.full_name,
+        is_gm=is_admin,
+    )
+    return player
+
+
+def set_name(bot: telegram.Bot, update: telegram.Update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     if len(args) == 0:
@@ -201,49 +222,42 @@ def set_name(_, update: telegram.Update, args, job_queue):
     user = message.from_user
     assert isinstance(user, telegram.User)
     name = ' '.join(args).strip()
-    redis.set('chat:{}:user:{}:name'.format(message.chat_id, user.id), name.encode())
-    message.chat.send_message('{} 已被设为 {}'.format(user.full_name, name))
-    delete_message(message)
-    save_username(message.chat_id, message.from_user.username, name)
-
-
-def get_name(message: telegram.Message) -> Optional[str]:
-    user_id = message.from_user.id
-    name = redis.get('chat:{}:user:{}:name'.format(message.chat_id, user_id))
-    if name:
-        return name.decode()
+    player = create_player(bot, message, name)
+    if player.is_gm:
+        message.chat.send_message('<b>主持人</b> {} 已设为 {}'.format(user.full_name, name), parse_mode='HTML')
     else:
+        message.chat.send_message('<b>玩家</b> {} 已设为 {}'.format(user.full_name, name), parse_mode='HTML')
+    delete_message(message)
+
+
+def get_name(message: telegram.Message, temp=False) -> Optional[str]:
+    user_id = message.from_user.id
+    player = Player.objects.filter(chat_id=message.chat_id, user_id=user_id).first()
+    if not player:
         return None
+    elif temp:
+        return player.temp_character_name
+    return player.character_name
 
 
 def set_dice_face(_, update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
+    chat = get_chat(message.chat)
     if len(args) != 1:
         return error_message(
             message,
             job_queue,
             '需要（且仅需要）指定骰子的默认面数，'
-            '目前为 <b>{}</b>'.format(get_default_dice_face(chat_id=message.chat_id))
+            '目前为 <b>{}</b>'.format(chat.default_dice_face)
         )
     try:
         face = int(args[0])
     except ValueError:
         error_message(message, job_queue, '面数只能是数字')
         return
-    redis.set('chat:{}:face'.format(message.chat_id), face)
-
-
-def get_default_dice_face(chat_id) -> int:
-    try:
-        return int(redis.get('chat:{}:face'.format(chat_id)))
-    except (ValueError, TypeError):
-        return DEFAULT_FACE
-
-
-def roll_text(chat_id, text):
-    _, text = dice.roll(text, get_default_dice_face(chat_id))
-    return text
+    chat.default_dice_face = face
+    chat.save()
 
 
 def round_inline_callback(query: telegram.CallbackQuery, gm: bool):
@@ -409,11 +423,12 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
 
 
 def handle_normal_roll(message: telegram.Message, command: str, name: str, text: str, job_queue: JobQueue, **_):
+    chat = get_chat(message.chat)
     hide = command[-1] == 'h'
     if text.strip() == '':
         text = 'd'
     try:
-        _, result_text = dice.roll(text, get_default_dice_face(message.chat_id))
+        _, result_text = dice.roll(text, chat.default_dice_face)
     except dice.RollError as e:
         return error_message(message, job_queue, e.args[0])
     handle_roll(message, name, result_text, job_queue, hide)
@@ -473,11 +488,10 @@ def is_author(message_id, user_id):
 
 
 def get_name_by_username(chat_id, username):
-    name = redis.get('chat:{}:username:{}:name'.format(chat_id, username))
-    if name:
-        return name.decode()
-    else:
+    player = Player.objects.filter(chat_id=chat_id, username=username).first()
+    if not player:
         return None
+    return player.character_name
 
 
 def delay_delete_messages(bot: telegram.Bot, job):
@@ -723,48 +737,26 @@ def handle_lift(update: telegram.Update, job_queue):
 
 
 def is_gm(chat_id: int, user_id: int) -> bool:
-    return redis.sismember('chat:{}:admin_set'.format(chat_id), user_id)
+    player = Player.objects.filter(chat_id=chat_id, user_id=user_id).first()
+    if not player:
+        return False
+    return player.is_gm
 
 
-def update_admin_job(bot, job):
-    chat_id = job.context
-    try:
-        administrators = bot.get_chat_administrators(chat_id)
-    except TelegramError:
-        job.schedule_removal()
+def update_player(chat_id, user: telegram.User):
+    player = Player.objects.filter(chat_id=chat_id, user_id=user.id).first()
+    if not player:
         return
-    user_id_list = [member.user.id for member in administrators]
-    admin_set_key = 'chat:{}:admin_set'.format(chat_id)
-    redis.delete(admin_set_key)
-    if user_id_list:
-        redis.sadd(admin_set_key, *user_id_list)
-    else:
-        job.schedule_removal()
-
-
-def save_username(chat_id, username=None, name=None):
-    if username and name:
-        redis.set('chat:{}:username:{}:name'.format(chat_id, username), name)
+    player.username = user.username
+    player.full_name = user.full_name
+    player.save()
 
 
 @run_async
-def run_chat_job(_, update, job_queue):
-    assert isinstance(job_queue, telegram.ext.JobQueue)
-    if isinstance(update.message, telegram.Message):
-        message = update.message
-        if not is_valid_chat_type(message.chat):
-            return
-        chat_id = message.chat_id
-        job_name = 'chat:{}'.format(chat_id)
-        job = job_queue.get_jobs_by_name(job_name)
-        if not job:
-            job_queue.run_repeating(
-                update_admin_job,
-                interval=30,
-                first=1,
-                context=chat_id,
-                name=job_name
-            )
+def run_chat_job(_bot, update: telegram.Update):
+    message = update.message
+    assert isinstance(message, telegram.Message)
+    update_player(message.chat_id, message.from_user)
 
 
 def split(pattern, text):
@@ -828,7 +820,6 @@ def handle_message(bot, update, job_queue, lifted=False):
             job_queue=job_queue,
             with_photo=with_photo,
         )
-        save_username(chat.chat_id, message.from_user.username, name)
         return
 
     edit_command_matched = re.compile(r'^(del|edit|lift|s)\b').match(text)
@@ -852,7 +843,6 @@ def handle_message(bot, update, job_queue, lifted=False):
             handle_replace(bot, chat, job_queue, message, rest)
     else:
         handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
-    save_username(chat.chat_id, message.from_user.username, name)
 
 
 def handle_photo(message: telegram.Message):
@@ -940,7 +930,6 @@ def main():
             Filters.all,
             run_chat_job,
             channel_post_updates=False,
-            pass_job_queue=True,
         ),
         group=42
     )

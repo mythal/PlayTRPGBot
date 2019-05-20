@@ -32,6 +32,7 @@ class Chat(models.Model):
     save_date = models.DateTimeField(null=True)
     recording = models.BooleanField(default=True)
     password = models.CharField(max_length=512, default='')
+    default_dice_face = models.IntegerField(default=20)
 
     def all_log(self):
         return self.log_set.filter(deleted=False).order_by('created')
