@@ -67,7 +67,7 @@ def is_valid_chat_type(chat: telegram.Chat):
     return isinstance(chat, telegram.Chat) and chat.type in ('supergroup', 'group')
 
 
-def start(_, update, job_queue):
+def start_command(_, update, job_queue):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -204,12 +204,16 @@ def create_player(bot: telegram.Bot, message: telegram.Message, character_name: 
         if message.from_user.id == admin.user.id:
             is_admin = True
             break
-    player, created = Player.objects.update_or_create(
-        chat_id=message.chat_id,
-        user_id=message.from_user.id,
+    defaults = dict(
         character_name=character_name,
         full_name=message.from_user.full_name,
+        username=message.from_user.username or '',
         is_gm=is_admin,
+    )
+    player, created = Player.objects.update_or_create(
+        defaults=defaults,
+        chat_id=message.chat_id,
+        user_id=message.from_user.id,
     )
     return player
 
@@ -422,8 +426,9 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
     handle_roll(message, name, result_text, job_queue, hide)
 
 
-def handle_normal_roll(message: telegram.Message, command: str, name: str, text: str, job_queue: JobQueue, **_):
-    chat = get_chat(message.chat)
+def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int, job_queue: JobQueue, chat, **_):
+    text = message_text_convert(message)
+    text = text[start:].strip()
     hide = command[-1] == 'h'
     if text.strip() == '':
         text = 'd'
@@ -527,13 +532,47 @@ def is_empty_message(text):
     return ME_REGEX.sub('', text).strip() == ''
 
 
+def message_text_convert(message: telegram.Message) -> str:
+    if not message.text:
+        return ''
+    assert isinstance(message.text, str)
+    last_index = 0
+    segments = []
+
+    def push_name(pushed_player: Player):
+        segments.append('<b>{}</b>'.format(pushed_player.character_name))
+
+    for entity in message.entities:
+        assert isinstance(entity, telegram.MessageEntity)
+        entity_offset = entity.offset
+        entity_length = entity.length
+        entity_end = entity_offset + entity_length
+        if entity.type == entity.MENTION:
+            segments.append(message.text[last_index:entity_offset])
+            mention = message.text[entity_offset:entity_end]
+            username = mention[1:]  # skip @
+            player = Player.objects.filter(chat_id=message.chat_id, username=username).first()
+            push_name(player)
+            last_index = entity_end
+        elif entity.type == entity.TEXT_MENTION:
+            player = Player.objects.filter(chat_id=message.chat_id, user_id=entity.user.id).first()
+            if not player:
+                continue
+            segments.append(message.text[last_index:entity_offset])
+            push_name(player)
+            last_index = entity_end
+    segments.append(message.text[last_index:])
+    return ''.join(segments)
+
+
 # ..(space)..[name];..(space)..
 AS_PATTERN = re.compile(r'^\s*([^;]+)[;；]\s*')
 
 
 def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
-                  text: str, with_photo=None, **_):
+                  start: int, with_photo=None, **_):
     user_id = message.from_user.id
+    text = message_text_convert(message)[start:]
     match = AS_PATTERN.match(text)
     if match:
         name = match.group(1).strip()
@@ -558,18 +597,10 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                name: str, text: str, edit_log=None, with_photo=None):
     user_id = message.from_user.id
     gm = is_gm(message.chat_id, user_id)
+    text = text.strip()
     if text.startswith('me'):
         text = '.' + text
 
-    # process input text
-    def name_resolve(match):
-        username = match.group(1)
-        name_result = get_name_by_username(message.chat_id, username)
-        if not name_result:
-            return '@{}'.format(username)
-        return '<b>{}</b>'.format(name_result)
-
-    text = USERNAME_REGEX.sub(name_resolve, text)
     kind = LogKind.NORMAL.value
 
     if is_empty_message(text) and not with_photo:
@@ -658,8 +689,9 @@ def handle_delete(chat, message: telegram.Message, job_queue):
         error_message(message, job_queue, '回复需要删除的记录')
 
 
-def handle_replace(bot, chat, job_queue, message: telegram.Message, text: str):
+def handle_replace(bot, chat, job_queue, message: telegram.Message, start: int):
     target = message.reply_to_message
+    text = message.text[start:].strip()
     if not isinstance(target, telegram.Message):
         return error_message(message, job_queue, '回复需要编辑的记录')
     try:
@@ -679,7 +711,7 @@ def handle_replace(bot, chat, job_queue, message: telegram.Message, text: str):
         error_message(message, job_queue, '你没有编辑这条消息的权限')
 
 
-def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
+def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int):
     target = message.reply_to_message
     if not isinstance(target, telegram.Message):
         return error_message(message, job_queue, '回复需要编辑的记录')
@@ -690,7 +722,8 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, text: str):
     if log is None:
         error_message(message, job_queue, '找不到对应的消息')
     elif log.user_id == user_id:
-        handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
+        text = message_text_convert(message)
+        handle_say(bot, chat, job_queue, message, log.character_name, text[start:], edit_log=log)
         delete_message(message)
     else:
         error_message(message, job_queue, '你没有编辑这条消息的权限')
@@ -719,8 +752,7 @@ def handle_initiative(message: telegram.Message, job_queue, name: str, text: str
     delete_message(message)
 
 
-def handle_lift(update: telegram.Update, job_queue):
-    message = update.message
+def handle_lift(message: telegram.Message, job_queue, chat: Chat):
     assert isinstance(message, telegram.Message)
     reply_to = message.reply_to_message
     user_id = message.from_user.id
@@ -728,12 +760,14 @@ def handle_lift(update: telegram.Update, job_queue):
         return error_message(message, job_queue, '需要回复一条消息来转换')
     elif reply_to.from_user.id == message.bot.id:
         return error_message(message, job_queue, '需要回复一条玩家发送的消息')
-    elif reply_to.from_user.id == user_id or is_gm(message.chat_id, user_id):
-        update.message = reply_to
-        delete_message(update.message)
-        return handle_message(message.bot, update, job_queue, lifted=True)
-    else:
+    elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
         return error_message(message, job_queue, '你只能转换自己的消息，GM 能转换任何人的消息')
+    name = get_name(reply_to)
+    text = message_text_convert(reply_to)
+    with_photo = handle_photo(reply_to)
+    handle_say(message.bot, chat, job_queue, reply_to, name, text, with_photo=with_photo)
+    delete_message(reply_to)
+    delete_message(message)
 
 
 def is_gm(chat_id: int, user_id: int) -> bool:
@@ -747,7 +781,7 @@ def update_player(chat_id, user: telegram.User):
     player = Player.objects.filter(chat_id=chat_id, user_id=user.id).first()
     if not player:
         return
-    player.username = user.username
+    player.username = user.username or ''
     player.full_name = user.full_name
     player.save()
 
@@ -765,26 +799,16 @@ def split(pattern, text):
         return None
     else:
         command = result.group(1)
-        rest = text[result.end():]
-        return command, rest
+        return command, result.end()
 
 
 @run_async
-def handle_message(bot, update, job_queue, lifted=False):
+def handle_message(bot, update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     with_photo = handle_photo(message)
-    if with_photo:
-        text = message.caption_html_urled
-    else:
-        text = message.text_html_urled
-    if not isinstance(text, str):
+    if not message.text or not message.text.startswith(('.', '。')):
         return
-    elif lifted:
-        text = '.' + text
-    if not text.startswith(('.', '。')):
-        return
-    text = text[1:]
     if not is_valid_chat_type(message.chat):
         message.reply_text('只能在群中使用我哦')
         return
@@ -797,52 +821,52 @@ def handle_message(bot, update, job_queue, lifted=False):
         return
 
     handlers = [
-        (re.compile(r'^(rh?)\b'), handle_normal_roll),
-        (re.compile(r'^(loh?)\b'), handle_loop_roll),
-        (re.compile(r'^(coch?[+\-]?h?)\s*'), handle_coc_roll),
-        (re.compile(r'^(init)\b'), handle_initiative),
-        (re.compile(r'^(as)\b'), handle_as_say),
+        (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
+        (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
+        (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
+        (re.compile(r'^[.。](init)\b'), handle_initiative),
+        (re.compile(r'^[.。](as)\b'), handle_as_say),
     ]
 
     for pattern, handler in handlers:
-        result = split(pattern, text)
+        result = split(pattern, message.text)
         if not result:
             continue
-        command, rest = result
-        rest = rest.strip()
+        command, start = result
+        text = message.text[start:]
         handler(
             bot=bot,
             chat=chat,
             command=command,
-            text=rest,
+            start=start,
             name=name,
+            text=text,
             message=message,
             job_queue=job_queue,
             with_photo=with_photo,
         )
         return
 
-    edit_command_matched = re.compile(r'^(del|edit|lift|s)\b').match(text)
+    edit_command_matched = re.compile(r'^[.。](del|edit|lift|s)\b').match(message.text)
     if edit_command_matched:
         command = edit_command_matched.group(1)
-        rest = text[edit_command_matched.end():].strip()
         reply_to = message.reply_to_message
         if not chat.recording:
             error_message(message, job_queue, '未在记录中，无法编辑消息')
         elif not isinstance(reply_to, telegram.Message):
             error_message(message, job_queue, '先需要回复一则消息')
         elif command == 'lift':
-            handle_lift(update, job_queue)
+            handle_lift(message, job_queue, chat)
         elif reply_to.from_user.id != bot.id:
             error_message(message, job_queue, '请回复 bot 发出的消息')
         elif command == 'del':
             handle_delete(chat, message, job_queue)
         elif command == 'edit':
-            handle_edit(bot, chat, job_queue, message, rest)
+            handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end())
         elif command == 's':
-            handle_replace(bot, chat, job_queue, message, rest)
+            handle_replace(bot, chat, job_queue, message, start=edit_command_matched.end())
     else:
-        handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
+        handle_say(bot, chat, job_queue, message, name, message_text_convert(message)[1:], with_photo=with_photo)
 
 
 def handle_photo(message: telegram.Message):
@@ -909,7 +933,7 @@ def main():
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start, pass_job_queue=True))
+    dp.add_handler(CommandHandler("start", start_command, pass_job_queue=True))
     dp.add_handler(CommandHandler("save", save, pass_job_queue=True))
     dp.add_handler(CommandHandler("help", bot_help))
     dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True, pass_job_queue=True))
