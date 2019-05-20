@@ -6,6 +6,7 @@ class Round(models.Model):
     counter = models.IntegerField(default=0)
     round_counter = models.IntegerField(default=1)
     message_id = models.BigIntegerField()
+    hide = models.BooleanField(default=False)
 
     def get_actors(self):
         actors = Actor.objects.filter(belong=self).order_by('value').reverse().all()
