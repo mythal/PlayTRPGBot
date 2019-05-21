@@ -39,7 +39,7 @@ def chat(request, chat_id):
         return render(request, 'chat_password.html', dict(chat=current, form=form))
 
 
-def export(request, chat_id, method: str):
+def export(request, chat_id, title: str, method: str):
     now = datetime.datetime.now()
     current = get_object_or_404(Chat, id=chat_id)
     if current.password and not is_allow(request.session, chat_id):

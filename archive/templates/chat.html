@@ -15,8 +15,8 @@
             </section>
         {% endif %}
         <section class="export">
-            <a href="{% url 'export' chat.id 'JSON' %}">JSON</a>
-            <a href="{% url 'export' chat.id 'CSV' %}">CSV</a>
+            <a href="{% url 'export' chat.id chat.title 'json' %}">JSON</a>
+            <a href="{% url 'export' chat.id chat.title 'csv' %}">CSV</a>
         </section>
         {% if chat.chat_set.count > 0 %}
             <section class="sub">

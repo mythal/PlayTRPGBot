@@ -29,7 +29,7 @@ services:
   bot:
     build: .
     image: quanbrew/play_trpg_bot
-    command: python bot.py
+    command: python start_bot.py
     restart: always
     ports:
       - "127.0.0.1:9990:9990"

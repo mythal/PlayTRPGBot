@@ -51,8 +51,8 @@ def json_export(_, current):
 
 
 EXPORT_METHOD = {
-    'CSV': csv_export,
-    'JSON': json_export,
+    'csv': csv_export,
+    'json': json_export,
 }
 
 __ALL__ = ['EXPORT_METHOD']
