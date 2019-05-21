@@ -185,6 +185,8 @@ def remove_round(bot: telegram.Bot, chat_id):
 
 def refresh_round_message(bot: telegram.Bot, game_round: Round, refresh=False):
     actors = game_round.get_actors()
+    if not actors:
+        return
     game_round.counter = game_round.counter % len(actors)
     counter = game_round.counter
     state = ''
