@@ -94,7 +94,7 @@ def refresh_round_message(bot: telegram.Bot, game_round: Round, refresh=False):
     state = ''
     if game_round.hide:
         state = '[{}]'.format(get(Text.HIDED_ROUND_LIST))
-    round_counter = get(Text.ROUND_COUNTER).format(game_round.round_counter)
+    round_counter = get(Text.ROUND_COUNTER).format(round_number=game_round.round_counter)
     text = '<b>{}</b> {state} #round\n\n{round_number}   [{counter}/{total}]\n\n'.format(
         get(Text.ROUND_INDICATOR),
         state=state,
