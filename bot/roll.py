@@ -10,7 +10,7 @@ from telegram.ext import JobQueue
 import dice
 from archive.models import LogKind, Log
 from .pattern import LOOP_ROLL_REGEX
-from .system import get_chat, error_message, message_text_convert, redis, is_gm, delay_delete_messages
+from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages
 from .display import Text, get
 
 
@@ -110,10 +110,10 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
 
 
 def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int, job_queue: JobQueue, chat, **_):
-    text = message_text_convert(message)
-    text = text[start:].strip()
+    rpg_message = RpgMessage(message, start)
     hide = command[-1] == 'h'
-    if text.strip() == '':
+    text = rpg_message.html_text()
+    if rpg_message.is_empty():
         text = 'd'
     try:
         _, result_text = dice.roll(text, chat.default_dice_face)

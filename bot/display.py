@@ -1,11 +1,12 @@
 from enum import Enum, auto
+from typing import Dict, Any, Union
 
 GM_SYMBOL = '✧'
 
 _help_file = open('./help.md')
 _start_file = open('./start.md')
-HELP_TEXT = _help_file.read()
-START_TEXT = _start_file.read()
+HELP_TEXT: str = _help_file.read()
+START_TEXT: str = _start_file.read()
 _help_file.close()
 _start_file.close()
 
@@ -69,7 +70,7 @@ class Text(Enum):
     ALREADY_SAVED = auto()
 
 
-text_table = {
+text_table: Dict[Text, str] = {
     Text.START_RECORDING: '已重新开始记录，输入 /save 告一段落',
     Text.SAVE: '告一段落，在 /start 前我不会再记录',
     Text.ALREADY_STARTED: '已经正在记录了',

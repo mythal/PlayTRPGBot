@@ -8,13 +8,13 @@ INITIATIVE_REGEX = re.compile(r'^(.+)=\s*(\d{1,4})$')
 LOOP_ROLL_REGEX = re.compile(r'^\s*(\d{1,2})\s*')
 
 # .me
-ME_REGEX = re.compile(r'^[.。]me\b|\s[.。]me\s?')
+ME_REGEX = re.compile(r'[.。]me\b')
 
 # @some_user_name
 USERNAME_REGEX = re.compile(r'@([a-zA-Z0-9_]{5,})')
 
 # ..(space)..[name];..(space)..
-AS_REGEX = re.compile(r'^\s*([^;]+)[;；]\s*')
+AS_REGEX = re.compile(r'^\.as\s*([^;；]+)[;；]\s*')
 
 EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|s)\b')
 

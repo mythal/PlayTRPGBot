@@ -16,7 +16,7 @@ from .round_counter import round_inline_callback, start_round, hide_round,\
 from . import pattern
 from . import const
 from .display import Text, get
-from .system import is_group_chat, delete_message, is_gm, get_chat, error_message, message_text_convert
+from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message
 
 from archive.models import Chat, Log
 from game.models import Player
@@ -128,8 +128,8 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int):
     if log is None:
         error_message(message, job_queue, get(Text.RECORD_NOT_FOUND))
     elif log.user_id == user_id:
-        text = message_text_convert(message)
-        handle_say(bot, chat, job_queue, message, log.character_name, text[start:], edit_log=log)
+        rpg_message = RpgMessage(message, start)
+        handle_say(bot, chat, job_queue, message, log.character_name, rpg_message, edit_log=log)
         delete_message(message)
     else:
         error_message(message, job_queue, get(Text.HAVE_NOT_PERMISSION))
@@ -146,9 +146,8 @@ def handle_lift(message: telegram.Message, job_queue, chat: Chat):
     elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
         return error_message(message, job_queue, get(Text.HAVE_NOT_PERMISSION))
     name = get_name(reply_to)
-    text = message_text_convert(reply_to)
     with_photo = handle_photo(reply_to)
-    handle_say(message.bot, chat, job_queue, reply_to, name, text, with_photo=with_photo)
+    handle_say(message.bot, chat, job_queue, reply_to, name, RpgMessage(reply_to), with_photo=with_photo)
     delete_message(reply_to)
     delete_message(message)
 
@@ -234,7 +233,8 @@ def handle_message(bot, update, job_queue):
         elif command == 's':
             handle_replace(bot, chat, job_queue, message, start=edit_command_matched.end())
     else:
-        handle_say(bot, chat, job_queue, message, name, message_text_convert(message)[1:], with_photo=with_photo)
+        rpg_message = RpgMessage(message, start=1)  # skip dot
+        handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
 
 
 def handle_photo(message: telegram.Message):

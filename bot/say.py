@@ -3,10 +3,10 @@ import uuid
 
 import telegram
 
-from archive.models import LogKind, Log
+from archive.models import LogKind, Log, Tag, Chat
 from . import display, pattern
 from .character_name import set_temp_name, get_temp_name
-from .system import is_gm, message_text_convert, error_message, delete_message
+from .system import RpgMessage, is_gm, error_message, delete_message
 from .display import Text, get
 
 
@@ -24,50 +24,54 @@ def is_empty_message(text):
 def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                   start: int, with_photo=None, **_):
     user_id = message.from_user.id
-    text = message_text_convert(message)[start:]
-    match = pattern.AS_REGEX.match(text)
-    if match:
-        name = match.group(1).strip()
-        if name == '':
-            return error_message(message, job_queue, get(Text.EMPTY_NAME))
-        set_temp_name(chat.chat_id, user_id, name)
-        text = text[match.end():]
+    match = pattern.AS_REGEX.match(message.text)
+
     if not is_gm(chat.chat_id, user_id):
         return error_message(message, job_queue, get(Text.NOT_GM))
+    elif match:
+        name = match.group(1).strip()
+        if name.strip() == '':
+            return error_message(message, job_queue, get(Text.EMPTY_NAME))
+        set_temp_name(chat.chat_id, user_id, name)
+        rpg_message = RpgMessage(message, match.end())
     else:
         name = get_temp_name(chat.chat_id, user_id) or ''
         if name == '':
             return error_message(message, job_queue, get(Text.AS_SYNTAX_ERROR))
+        rpg_message = RpgMessage(message, start)
 
-    handle_say(bot, chat, job_queue, message, name, text, with_photo=with_photo)
+    handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
+
+
+def get_tag(chat: Chat, name: str):
+    tag, _ = Tag.objects.update_or_create(chat=chat, name=name)
+    return tag
 
 
 def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
-               name: str, text: str, edit_log=None, with_photo=None):
+               name: str, rpg_message: RpgMessage, edit_log=None, with_photo=None):
     user_id = message.from_user.id
     gm = is_gm(message.chat_id, user_id)
-    text = text.strip()
-    if text.startswith('me'):
-        text = '.' + text
 
     kind = LogKind.NORMAL.value
 
-    if is_empty_message(text) and not with_photo:
+    text = rpg_message.html_text().strip()
+
+    if not text and not with_photo:
         error_message(message, job_queue, get(Text.EMPTY_MESSAGE))
         return
-    elif pattern.ME_REGEX.search(text):
-        send_text = pattern.ME_REGEX.sub('<b>{}</b>'.format(name), text)
-        content = send_text
+
+    if rpg_message.has_me():
         kind = LogKind.ME.value
+        send_text = text
     else:
         send_text = '<b>{}</b>: {}'.format(name, text)
-        content = text
     symbol = get_symbol(message.chat_id, user_id)
     send_text = symbol + send_text
     # on edit
     if edit_log:
         assert isinstance(edit_log, Log)
-        edit_log.content = content
+        edit_log.content = text
         edit_log.kind = kind
         edit_log.save()
         bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
@@ -107,10 +111,13 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             kind=kind,
             reply=reply_log,
             character_name=name,
-            content=content,
+            content=text,
             gm=gm,
             created=message.date,
         )
+        for name in rpg_message.tags:
+            created_log.tag.add(get_tag(chat, name))
+        created_log.save()
         # download and write photo file
         if isinstance(with_photo, telegram.PhotoSize):
             created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))

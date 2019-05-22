@@ -1,4 +1,3 @@
-
 import telegram
 from redis import Redis
 from telegram import TelegramError
@@ -7,6 +6,7 @@ from telegram.ext import JobQueue
 from archive.models import Chat, Log
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
 from .display import Text, get
+from .pattern import ME_REGEX
 from game.models import Player
 
 
@@ -109,6 +109,115 @@ def message_text_convert(message: telegram.Message) -> str:
             last_index = entity_end
     segments.append(message.text[last_index:])
     return ''.join(segments)
+
+
+class Me:
+    def __init__(self, player):
+        self.player = player
+
+
+class Bold:
+    def __init__(self, text):
+        self.bold = text
+
+
+class RpgMessage:
+    me = None
+
+    def __init__(self, message: telegram.Message, start=0):
+        self.start = start
+        self.players = list(Player.objects.filter(chat_id=message.chat_id).all())
+        for player in self.players:
+            if player.user_id == message.from_user.id:
+                self.me = Me(player)
+
+        self.segments = []
+        self.tags = []
+        if not message.text:
+            return
+        assert isinstance(message.text, str)
+        last_index = 0
+
+        for entity in message.entities:
+            assert isinstance(entity, telegram.MessageEntity)
+            entity_offset = entity.offset
+            entity_length = entity.length
+            entity_end = entity_offset + entity_length
+            if entity.type == entity.MENTION:
+                self.push_text(message.text[last_index:entity_offset])
+                mention = message.text[entity_offset:entity_end]
+                self.push_mention(mention)
+                last_index = entity_end
+            elif entity.type == entity.TEXT_MENTION:
+                self.push_text(message.text[last_index:entity_offset])
+                self.push_text_mention(entity.user)
+                last_index = entity_end
+            elif entity.type == entity.HASHTAG:
+                self.push_text(message.text[last_index:entity_offset])
+                self.tags.append(message.text[entity_offset+1:entity_end])
+                last_index = entity_end
+            elif entity.type == entity.BOLD:
+                self.push_text(message.text[last_index:entity_offset])
+                self.segments.append(Bold(message.text[entity_offset:entity_end]))
+                last_index = entity_end
+
+        self.push_text(message.text[last_index:])
+        if len(self.segments) > 0 and isinstance(self.segments[0], str):
+            if start < len(self.segments[0]):
+                self.segments[0] = self.segments[0][start:]
+            else:
+                self.segments.pop(0)
+
+    def push_text(self, text: str):
+        def push(x: str):
+            if x:
+                self.segments.append(x)
+
+        last_index = 0
+        for match in ME_REGEX.finditer(text):
+            push(text[last_index:match.start()])
+            self.segments.append(self.me)
+            last_index = match.end()
+        push(text[last_index:])
+
+    def push_mention(self, mention: str):
+        username = mention[1:]  # skip @
+        for player in self.players:
+            if player.username == username:
+                return self.segments.append(player)
+        return self.segments.append(mention)
+
+    def push_text_mention(self, user):
+        for player in self.players:
+            if player.user_id == user.id:
+                self.segments.append(player)
+                return
+
+    def has_me(self) -> bool:
+        for segment in self.segments:
+            if isinstance(segment, Me):
+                return True
+        return False
+
+    def is_empty(self) -> bool:
+        return len(self.segments) == 0
+
+    def html_text(self) -> str:
+        text = ''
+        for segment in self.segments:
+            if isinstance(segment, str):
+                text += segment
+            elif isinstance(segment, Me):
+                text += '<b>{}</b>'.format(segment.player.character_name)
+            elif isinstance(segment, Player):
+                text += '<b>{}</b>'.format(segment.character_name)
+            elif isinstance(segment, Bold):
+                text += '<b>{}</b>'.format(segment.bold)
+        text = text.strip()
+        if self.tags:
+            return '{} // {}'.format(text, ' '.join(['#{}'.format(tag) for tag in self.tags]))
+        else:
+            return text
 
 
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
