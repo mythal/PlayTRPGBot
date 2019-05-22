@@ -204,13 +204,16 @@ def handle_variable_assign(message: telegram.Message, job_queue, name: str, text
             old_value = None
         else:
             old_value = variable.value
-            if old_value.isdigit() and value.isdigit():
+            if old_value.isdigit() and value.isdigit() and len(old_value) < 6 and len(value) < 6:
                 if operator == '+':
                     variable.value = str(int(old_value) + int(value))
                 elif operator == '-':
                     variable.value = str(int(old_value) - int(value))
+            elif operator == '+':
+                variable.value = old_value + ', ' + value
             else:
-                variable.value = old_value + value
+                return error_message(message, job_queue, get(Text.VARIABLE_ASSIGN_USAGE))
+        variable.save()
         return send_variable_update(message, name, variable, old_value)
 
     for match in pattern.VARIABLE_NAME_REGEX.finditer(text):
