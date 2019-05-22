@@ -16,10 +16,10 @@ from .round_counter import round_inline_callback, start_round, hide_round,\
 from . import pattern
 from . import const
 from .display import Text, get
-from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message
+from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message, delay_delete_messages
 
 from archive.models import Chat, Log
-from game.models import Player
+from game.models import Player, Variable
 
 
 # Enable logging
@@ -152,6 +152,83 @@ def handle_lift(message: telegram.Message, job_queue, chat: Chat):
     delete_message(message)
 
 
+def handle_list_variables(message: telegram.Message, job_queue: telegram.ext.JobQueue, name: str, **_):
+    player = Player.objects.filter(chat_id=message.chat_id, user_id=message.from_user.id).first()
+    if not player:
+        return error_message(message, job_queue, get(Text.PLAYER_NOT_FOUND))
+    content = ''
+    for variable in player.variable_set.order_by('updated').all():
+        content += '<code>${}</code> {}\n'.format(variable.name, variable.value)
+
+    send_text = '<b>{}</b> #variable\n\n{}'.format(get(Text.VARIABLE_LIST_TITLE).format(character=name), content)
+    list_message = message.chat.send_message(send_text, parse_mode='HTML')
+    delete_message(message)
+    delete_time = 30
+    job_queue.run_once(delay_delete_messages, delete_time, context=dict(
+        chat_id=message.chat_id,
+        message_id_list=(list_message.message_id,)
+    ))
+
+
+def send_variable_update(message: telegram.Message, character: str, variable: Variable, old_value=None):
+    if old_value is None:
+        if not variable.value:
+            send_text = get(Text.VARIABLE_ASSIGNED_EMPTY)\
+                .format(character=character, variable=variable.name)
+        else:
+            send_text = get(Text.VARIABLE_ASSIGNED)\
+                .format(character=character, variable=variable, value=variable.value)
+    elif old_value == variable.value:
+        send_text = get(Text.VARIABLE_NOT_CHANGE)\
+            .format(character=character, variable=variable.value, old_value=old_value, value=variable.value)
+    else:
+        send_text = get(Text.VARIABLE_UPDATED)\
+            .format(character=character, variable=variable.name, old_value=old_value, value=variable.value)
+    message.chat.send_message(send_text, parse_mode='HTML')
+    delete_message(message)
+
+
+def handle_variable_assign(message: telegram.Message, job_queue, name: str, text: str, **_):
+    player = Player.objects.filter(chat_id=message.chat_id, user_id=message.from_user.id).first()
+    if not player:
+        return error_message(message, job_queue, get(Text.PLAYER_NOT_FOUND))
+    text = text.strip()
+    matched = pattern.VARIABLE_MODIFY_REGEX.match(text)
+    if matched:
+        var_name = matched.group(1)
+        operator = matched.group(2)
+        value = text[matched.end():].strip()
+        variable = Variable.objects.filter(player=player, name__iexact=var_name).first()
+        if not variable:
+            variable = Variable.objects.create(player=player, name=var_name, value=value)
+            old_value = None
+        else:
+            old_value = variable.value
+            if old_value.isdigit() and value.isdigit():
+                if operator == '+':
+                    variable.value = str(int(old_value) + int(value))
+                elif operator == '-':
+                    variable.value = str(int(old_value) - int(value))
+            else:
+                variable.value = old_value + value
+        return send_variable_update(message, name, variable, old_value)
+
+    for match in pattern.VARIABLE_NAME_REGEX.finditer(text):
+        var_name = match.group(1).strip()
+        value = text[match.end():].strip()
+        variable = Variable.objects.filter(player=player, name__iexact=var_name).first()
+        old_value = None
+        if not variable:
+            variable = Variable.objects.create(player=player, name=var_name, value=value)
+        else:
+            old_value = variable.value
+            variable.value = value
+            variable.save()
+        return send_variable_update(message, name, variable, old_value)
+    else:
+        error_message(message, job_queue, get(Text.VARIABLE_ASSIGN_USAGE))
+
+
 def update_player(chat_id, user: telegram.User):
     player = Player.objects.filter(chat_id=chat_id, user_id=user.id).first()
     if not player:
@@ -192,6 +269,8 @@ def handle_message(bot, update, job_queue):
         (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
         (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
         (re.compile(r'^[.。](init)\b'), handle_initiative),
+        (re.compile(r'^[.。](set)\b'), handle_variable_assign),
+        (re.compile(r'^[.。](list)\b'), handle_list_variables),
         (re.compile(r'^[.。](as)\b'), handle_as_say),
     ]
 

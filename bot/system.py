@@ -6,7 +6,7 @@ from telegram.ext import JobQueue
 from archive.models import Chat, Log
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
 from .display import Text, get
-from .pattern import ME_REGEX
+from .pattern import ME_REGEX, VARIABLE_REGEX
 from game.models import Player
 
 
@@ -123,6 +123,7 @@ class Bold:
 
 class RpgMessage:
     me = None
+    variables = {}
 
     def __init__(self, message: telegram.Message, start=0):
         self.start = start
@@ -130,6 +131,9 @@ class RpgMessage:
         for player in self.players:
             if player.user_id == message.from_user.id:
                 self.me = Me(player)
+                self.variables = {}
+                for variable in player.variable_set.all():
+                    self.variables[variable.name.upper()] = variable.value
 
         self.segments = []
         self.tags = []
@@ -168,10 +172,16 @@ class RpgMessage:
             else:
                 self.segments.pop(0)
 
+    def replace_variable(self, matched):
+        return self.variables.get(matched.group(1).upper(), '')
+
+    def resolve_variable(self, text: str):
+        return VARIABLE_REGEX.sub(self.replace_variable, text)
+
     def push_text(self, text: str):
         def push(x: str):
             if x:
-                self.segments.append(x)
+                self.segments.append(self.resolve_variable(x))
 
         last_index = 0
         for match in ME_REGEX.finditer(text):

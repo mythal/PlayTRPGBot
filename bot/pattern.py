@@ -16,6 +16,12 @@ USERNAME_REGEX = re.compile(r'@([a-zA-Z0-9_]{5,})')
 # ..(space)..[name];..(space)..
 AS_REGEX = re.compile(r'^\.as\s*([^;；]+)[;；]\s*')
 
+VARIABLE_REGEX = re.compile(r'[$¥]([\w_0-9]{1,32})')
+
+VARIABLE_NAME_REGEX = re.compile(r'[$¥]?([\w_0-9]{1,32})')
+
+VARIABLE_MODIFY_REGEX = re.compile(r'^\s*[$¥]?([\w_0-9]{1,32})\s*([+\-])\s*')
+
 EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|s)\b')
 
 

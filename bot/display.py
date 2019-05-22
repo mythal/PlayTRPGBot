@@ -67,10 +67,26 @@ class Text(Enum):
     START_RECORDING = auto()
     ALREADY_STARTED = auto()
     SAVE = auto()
+    PLAYER_NOT_FOUND = auto()
     ALREADY_SAVED = auto()
+    VARIABLE_ASSIGNED = auto()
+    VARIABLE_ASSIGNED_EMPTY = auto()
+    VARIABLE_UPDATED = auto()
+    VARIABLE_ASSIGN_USAGE = auto()
+    VARIABLE_LIST_TITLE = auto()
+    VARIABLE_NOT_CHANGE = auto()
 
 
 text_table: Dict[Text, str] = {
+    Text.VARIABLE_LIST_TITLE: '{character} 的变量',
+    Text.VARIABLE_UPDATED: '{character} 的 <code>{variable}</code> 已变动\n'
+                           '<code>{old_value}</code> → <code>{value}</code>',
+    Text.PLAYER_NOT_FOUND: '没有找到玩家，请尝试重新执行一下 <code>/name</code>',
+    Text.VARIABLE_ASSIGN_USAGE: '设置变量语法： <code>.set 变量名 变 量 值，可 以 有 空 格</code>\n'
+                                '变量名可以用中文、英文数字和下划线，1-32个字符',
+    Text.VARIABLE_ASSIGNED: '{character} 的 <code>{variable}</code> 已设为 <code>{value}</code>',
+    Text.VARIABLE_ASSIGNED_EMPTY: '{character} 的 <code>{variable}</code> 已添加',
+    Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 没有变动',
     Text.START_RECORDING: '已重新开始记录，输入 /save 告一段落',
     Text.SAVE: '告一段落，在 /start 前我不会再记录',
     Text.ALREADY_STARTED: '已经正在记录了',
@@ -114,7 +130,7 @@ text_table: Dict[Text, str] = {
     Text.GM_LOOKUP: 'GM 查看',
     Text.ROLL_HIDE_DICE: '投了一个隐形骰子',
     Text.ONLY_GM_CAN_LOOKUP: '暗骰只有 GM 才能查看',
-    Text.HIDE_ROLL_NOT_FOUND: '找不到这条暗骰记录',
+    Text.HIDE_ROLL_NOT_FOUND: '找不到这条暗骰记录，暗骰记录会定期清理掉',
     Text.ROUND_REMOVE: '删除',
     Text.ROUND_FINISH: '结束',
     Text.ALREADY_FIRST_TURN: '已经是第一回合了',
