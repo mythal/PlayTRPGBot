@@ -177,7 +177,7 @@ def send_variable_update(message: telegram.Message, character: str, variable: Va
                 .format(character=character, variable=variable.name)
         else:
             send_text = get(Text.VARIABLE_ASSIGNED)\
-                .format(character=character, variable=variable, value=variable.value)
+                .format(character=character, variable=variable.name, value=variable.value)
     elif old_value == variable.value:
         send_text = get(Text.VARIABLE_NOT_CHANGE)\
             .format(character=character, variable=variable.value, old_value=old_value, value=variable.value)

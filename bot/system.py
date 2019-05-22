@@ -173,7 +173,7 @@ class RpgMessage:
                 self.segments.pop(0)
 
     def replace_variable(self, matched):
-        return self.variables.get(matched.group(1).upper(), '')
+        return self.variables.get(matched.group(1).upper(), matched.group(0))
 
     def resolve_variable(self, text: str):
         return VARIABLE_REGEX.sub(self.replace_variable, text)
