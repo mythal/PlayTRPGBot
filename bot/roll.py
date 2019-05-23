@@ -8,7 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import JobQueue
 
 import dice
-from archive.models import LogKind, Log
+from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
 from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages
 from .display import Text, get
@@ -35,7 +35,7 @@ def set_dice_face(_, update, args, job_queue):
 
 def handle_coc_roll(
         message: telegram.Message, command: str,
-        name: str, text: str, job_queue: JobQueue, **_):
+        name: str, text: str, job_queue: JobQueue, chat: Chat, **_):
     """
     Call of Cthulhu
     """
@@ -82,10 +82,11 @@ def handle_coc_roll(
     else:
         remark = get(Text.COC_FAIL)
     result_text = '{} → <code>{}</code> {}\n\n{}'.format(text, rolled, remark, modification)
-    handle_roll(message, name, result_text, job_queue, hide)
+    handle_roll(message, name, result_text, job_queue, chat, hide)
 
 
-def handle_loop_roll(message: telegram.Message, command: str, name: str, text: str, job_queue: JobQueue, **_):
+def handle_loop_roll(message: telegram.Message, command: str, name: str, text: str,
+                     job_queue: JobQueue, chat: Chat, **_):
     """
     Tales from the Loop
     """
@@ -106,10 +107,11 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
             counter += 1
     description = text[roll_match.end():]
     result_text = '<code>({}/{}) [{}]</code> {}'.format(counter, number, ', '.join(result_list), description)
-    handle_roll(message, name, result_text, job_queue, hide)
+    handle_roll(message, name, result_text, job_queue, chat, hide)
 
 
-def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int, job_queue: JobQueue, chat, **_):
+def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int,
+                       job_queue: JobQueue, chat: Chat, **_):
     rpg_message = RpgMessage(message, start)
     hide = command[-1] == 'h'
     text = rpg_message.html_text()
@@ -119,10 +121,10 @@ def handle_normal_roll(message: telegram.Message, command: str, name: str, start
         _, result_text = dice.roll(text, chat.default_dice_face)
     except dice.RollError as e:
         return error_message(message, job_queue, e.args[0])
-    handle_roll(message, name, result_text, job_queue, hide)
+    handle_roll(message, name, result_text, job_queue, chat, hide)
 
 
-def handle_roll(message: telegram.Message, name: str, result_text: str, job_queue: JobQueue, hide=False):
+def handle_roll(message: telegram.Message, name: str, result_text: str, job_queue: JobQueue, chat: Chat, hide=False):
     kind = LogKind.ROLL.value
     if hide:
         roll_id = str(uuid.uuid4())
@@ -139,7 +141,6 @@ def handle_roll(message: telegram.Message, name: str, result_text: str, job_queu
     else:
         text = '{} 🎲 {}'.format(name, result_text)
         reply_markup = None
-    chat = get_chat(message.chat)
     if not chat.recording:
         text = '[{}] '.format(get(Text.NOT_RECORDING)) + text
     sent = message.chat.send_message(

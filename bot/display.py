@@ -67,7 +67,7 @@ class Text(Enum):
     START_RECORDING = auto()
     ALREADY_STARTED = auto()
     SAVE = auto()
-    PLAYER_NOT_FOUND = auto()
+    REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT = auto()
     ALREADY_SAVED = auto()
     VARIABLE_ASSIGNED = auto()
     VARIABLE_ASSIGNED_EMPTY = auto()
@@ -78,15 +78,16 @@ class Text(Enum):
 
 
 text_table: Dict[Text, str] = {
-    Text.VARIABLE_LIST_TITLE: '{character} 的变量',
+    Text.VARIABLE_LIST_TITLE: '{character} 的指代',
     Text.VARIABLE_UPDATED: '{character} 的 <code>{variable}</code> 已变动\n'
                            '<code>{old_value}</code> → <code>{value}</code>',
-    Text.PLAYER_NOT_FOUND: '没有找到玩家，请尝试重新执行一下 <code>/name</code>',
-    Text.VARIABLE_ASSIGN_USAGE: '设置变量语法： <code>.set 变量名 变 量 值，可 以 有 空 格</code>\n'
-                                '变量名可以用中文、英文数字和下划线，1-32个字符',
+    Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT: 'GM 可以通过 @ 或回复别的玩家 <code>.set 指代名 所指内容</code> '
+                                                     '来为别的玩家建立指代。但是你所回复的消息不和一个玩家所关联。',
+    Text.VARIABLE_ASSIGN_USAGE: '建立指代语法： <code>.set HP 42</code>\n'
+                                '指代名可以用中文、英文数字和下划线，1-32个字符',
     Text.VARIABLE_ASSIGNED: '{character} 的 <code>{variable}</code> 已设为 <code>{value}</code>',
     Text.VARIABLE_ASSIGNED_EMPTY: '{character} 的 <code>{variable}</code> 已添加',
-    Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 没有变动',
+    Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 没有变动，仍然是 <code>{value}</code>',
     Text.START_RECORDING: '已重新开始记录，输入 /save 告一段落',
     Text.SAVE: '告一段落，在 /start 前我不会再记录',
     Text.ALREADY_STARTED: '已经正在记录了',

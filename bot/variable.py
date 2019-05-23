@@ -9,10 +9,7 @@ from game.models import Player, Variable
 from archive.models import Log, LogKind, Chat
 
 
-def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: str, **_):
-    player = Player.objects.filter(chat_id=message.chat_id, user_id=message.from_user.id).first()
-    if not player:
-        return error_message(message, job_queue, get(Text.PLAYER_NOT_FOUND))
+def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: str, player: Player, **_):
     content = ''
     for variable in player.variable_set.order_by('updated').all():
         content += '<code>${}</code> {}\n'.format(variable.name, variable.value)
@@ -39,7 +36,7 @@ def variable_message(message: telegram.Message, job_queue: JobQueue, chat: Chat,
                 .format(character=character, variable=variable.name, value=variable.value)
     elif old_value == variable.value:
         send_text = get(Text.VARIABLE_NOT_CHANGE)\
-            .format(character=character, variable=variable.value, old_value=old_value, value=variable.value)
+            .format(character=character, variable=variable.name, value=variable.value)
     else:
         send_text = get(Text.VARIABLE_UPDATED)\
             .format(character=character, variable=variable.name, old_value=old_value, value=variable.value)
@@ -95,12 +92,14 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
             # reply to a bot message
             if user_id == bot.id:
                 log = Log.objects.filter(message_id=reply_to.message_id, chat__chat_id=message.chat_id).first()
-                if log:
-                    user_id = log.user_id
+                if not log:
+                    error_message(message, job_queue, get(Text.RECORD_NOT_FOUND))
+                    return
+                user_id = log.user_id
         if user_id != player.user_id:
             player = get_player_by_id(message.chat_id, user_id)
-        if not player:
-            return error_message(message, job_queue, get(Text.PLAYER_NOT_FOUND))
+            if not player:
+                return error_message(message, job_queue, get(Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT))
         assign_list.append(player)
     text = message.text[start:].strip()
 
