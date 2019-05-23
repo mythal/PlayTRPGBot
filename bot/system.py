@@ -194,8 +194,7 @@ class RpgMessage:
     def resolve_variable(self, text: str):
         resolve_level = 5
         for _ in range(resolve_level):
-            if VARIABLE_REGEX.search(text):
-                text = VARIABLE_REGEX.sub(self.replace_variable, text)
+            text = VARIABLE_REGEX.sub(self.replace_variable, text)
         return text
 
     def push_text(self, text: str):
