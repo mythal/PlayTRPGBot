@@ -8,7 +8,7 @@ INITIATIVE_REGEX = re.compile(r'^(.+)=\s*(\d{1,4})$')
 LOOP_ROLL_REGEX = re.compile(r'^\s*(\d{1,2})\s*')
 
 # .me
-ME_REGEX = re.compile(r'[.。]me\b')
+ME_REGEX = re.compile(r'[.。/]me\b')
 
 # @some_user_name
 USERNAME_REGEX = re.compile(r'@([a-zA-Z0-9_]{5,})')
@@ -22,11 +22,13 @@ VARIABLE_NAME_REGEX = re.compile(r'[$¥]?([\w_0-9]{1,32})')
 
 VARIABLE_MODIFY_REGEX = re.compile(r'^\s*[$¥]?([\w_0-9]{1,32})\s*([+\-])\s*')
 
-EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|s)\b')
+VARIABLE_IGNORE_HEAD = re.compile(r'^\s*=\s*')
+
+EDIT_COMMANDS_REGEX = re.compile(r'^[.。/](del|edit|lift|s)\b')
 
 
-def split(pattern, text) -> Optional[Tuple[str, int]]:
-    result = re.match(pattern, text)
+def split(pattern, text: str) -> Optional[Tuple[str, int]]:
+    result = re.match(pattern, text.lower())
     if result is None:
         return None
     else:

@@ -196,7 +196,7 @@ class RpgMessage:
         text = VARIABLE_REGEX.sub(self.replace_variable, text, count=counter)
         extra_resolve_level = 3
         for _ in range(extra_resolve_level):
-            if text > 256:
+            if len(text) > 256:
                 break
             text = VARIABLE_REGEX.sub(self.replace_variable, text, count=counter)
         return text

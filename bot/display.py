@@ -73,18 +73,25 @@ class Text(Enum):
     VARIABLE_ASSIGNED_EMPTY = auto()
     VARIABLE_UPDATED = auto()
     VARIABLE_ASSIGN_USAGE = auto()
-    VARIABLE_LIST_TITLE = auto()
     VARIABLE_NOT_CHANGE = auto()
+    VARIABLE_CLEARED = auto()
+    VARIABLE_LIST_TITLE = auto()
+    VARIABLE_LIST_BUTTON = auto()
+    VARIABLE_LIST_EMPTY = auto()
 
 
 text_table: Dict[Text, str] = {
+    Text.VARIABLE_CLEARED: '{character} 的指代已清空',
     Text.VARIABLE_LIST_TITLE: '{character} 的指代',
-    Text.VARIABLE_UPDATED: '{character} 的 <code>{variable}</code> 已变动\n'
+    Text.VARIABLE_LIST_EMPTY: '没有建立任何指代',
+    Text.VARIABLE_LIST_BUTTON: '查看我的指代',
+    Text.VARIABLE_UPDATED: '{character} 的 <code>{variable}</code> 已变动: '
                            '<code>{old_value}</code> → <code>{value}</code>',
     Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT: 'GM 可以通过 @ 或回复别的玩家 <code>.set 指代名 所指内容</code> '
                                                      '来为别的玩家建立指代。但是你所回复的消息不和一个玩家所关联。',
-    Text.VARIABLE_ASSIGN_USAGE: '建立指代语法： <code>.set HP 42</code>\n'
-                                '指代名可以用中文、英文数字和下划线，1-32个字符',
+    Text.VARIABLE_ASSIGN_USAGE: '建立指代： <code>.set HP 42</code>\n'
+                                '指代名可以用中文、英文数字和下划线，1-32个字符\n'
+                                '可以分多行一次建立多个指代',
     Text.VARIABLE_ASSIGNED: '{character} 的 <code>{variable}</code> 已设为 <code>{value}</code>',
     Text.VARIABLE_ASSIGNED_EMPTY: '{character} 的 <code>{variable}</code> 已添加',
     Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 没有变动，仍然是 <code>{value}</code>',

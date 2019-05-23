@@ -9,7 +9,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from telegram.ext.dispatcher import run_async
 
 from bot.say import handle_as_say, handle_say
-from bot.variable import handle_list_variables, handle_variable_assign
+from bot.variable import handle_list_variables, handle_variable_assign, handle_clear_variables
 from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback
 from .character_name import set_name, get_name
 from .round_counter import round_inline_callback, start_round, hide_round,\
@@ -173,7 +173,7 @@ def handle_message(bot, update, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     with_photo = handle_photo(message)
-    if not message.text or not message.text.startswith(('.', '。')):
+    if not message.text or not message.text.startswith(('.', '。', '/')):
         return
     if not is_group_chat(message.chat):
         message.reply_text(get(Text.NOT_GROUP))
@@ -188,14 +188,15 @@ def handle_message(bot, update, job_queue):
         return
 
     handlers = [
-        (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
-        (re.compile(r'^[.。](hd)\b'), handle_normal_roll),
-        (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
-        (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
-        (re.compile(r'^[.。](init)\b'), handle_initiative),
-        (re.compile(r'^[.。](set)\b'), handle_variable_assign),
-        (re.compile(r'^[.。](list)\b'), handle_list_variables),
-        (re.compile(r'^[.。](as)\b'), handle_as_say),
+        (re.compile(r'^[.。/](rh?)\b'), handle_normal_roll),
+        (re.compile(r'^[.。/](hd)\b'), handle_normal_roll),
+        (re.compile(r'^[.。/](loh?)\b'), handle_loop_roll),
+        (re.compile(r'^[.。/](coch?[+\-]?h?)\s*'), handle_coc_roll),
+        (re.compile(r'^[.。/](init)\b'), handle_initiative),
+        (re.compile(r'^[.。/](set)\b'), handle_variable_assign),
+        (re.compile(r'^[.。/](list)\b'), handle_list_variables),
+        (re.compile(r'^[.。/](clear)\b'), handle_clear_variables),
+        (re.compile(r'^[.。/](as)\b'), handle_as_say),
     ]
 
     for pat, handler in handlers:
@@ -218,9 +219,9 @@ def handle_message(bot, update, job_queue):
         )
         return
 
-    edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(message.text)
+    edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(message.text.lower())
     if edit_command_matched:
-        command = edit_command_matched.group(1)
+        command = edit_command_matched.group(1).lower()
         reply_to = message.reply_to_message
         if not chat.recording:
             error_message(message, job_queue, get(Text.RECORD_NOT_FOUND))
@@ -237,7 +238,7 @@ def handle_message(bot, update, job_queue):
         elif command == 's':
             handle_replace(bot, chat, job_queue, message, start=edit_command_matched.end())
     else:
-        rpg_message = RpgMessage(message, start=1)  # skip dot
+        rpg_message = RpgMessage(message, start=1)
         handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
 
 
@@ -303,7 +304,7 @@ def run_bot():
     dp.add_handler(CommandHandler('next', next_turn, pass_job_queue=True))
     dp.add_handler(CommandHandler('password', set_password, pass_args=True, pass_job_queue=True))
     dp.add_handler(MessageHandler(
-        Filters.text | Filters.photo,
+        Filters.text | Filters.photo | Filters.command,
         handle_message,
         channel_post_updates=False,
         pass_job_queue=True,
