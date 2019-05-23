@@ -12,11 +12,7 @@ class LogKind(Enum):
     ME = auto()
     ROLL = auto()
     HIDE_DICE = auto()
-
-
-class VariableKind(Enum):
-    NUM = auto()
-    STR = auto()
+    VARIABLE = auto()
 
 
 def choice(enum):

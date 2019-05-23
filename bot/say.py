@@ -101,27 +101,28 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             parse_mode='HTML',
         )
 
-    if chat.recording:
-        # record log
-        created_log = Log.objects.create(
-            message_id=sent.message_id,
-            chat=chat,
-            user_id=user_id,
-            user_fullname=message.from_user.full_name,
-            kind=kind,
-            reply=reply_log,
-            character_name=name,
-            content=text,
-            gm=gm,
-            created=message.date,
-        )
-        for name in rpg_message.tags:
-            created_log.tag.add(get_tag(chat, name))
-        created_log.save()
-        # download and write photo file
-        if isinstance(with_photo, telegram.PhotoSize):
-            created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
-            media = created_log.media.open('rb+')
-            with_photo.get_file().download(out=media)
-            media.close()
     delete_message(message)
+    if not chat.recording:
+        return
+    # record log
+    created_log = Log.objects.create(
+        message_id=sent.message_id,
+        chat=chat,
+        user_id=user_id,
+        user_fullname=message.from_user.full_name,
+        kind=kind,
+        reply=reply_log,
+        character_name=name,
+        content=text,
+        gm=gm,
+        created=message.date,
+    )
+    for name in rpg_message.tags:
+        created_log.tag.add(get_tag(chat, name))
+    created_log.save()
+    # download and write photo file
+    if isinstance(with_photo, telegram.PhotoSize):
+        created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
+        media = created_log.media.open('rb+')
+        with_photo.get_file().download(out=media)
+        media.close()

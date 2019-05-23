@@ -1,3 +1,5 @@
+from typing import Optional
+
 import telegram
 from redis import Redis
 from telegram import TelegramError
@@ -109,6 +111,20 @@ def message_text_convert(message: telegram.Message) -> str:
             last_index = entity_end
     segments.append(message.text[last_index:])
     return ''.join(segments)
+
+
+def get_player_by_username(chat_id, username: str) -> Optional[Player]:
+    if username.startswith('@'):
+        username = username[1:]
+    if not username:
+        return None
+    return Player.objects.filter(username=username, chat_id=chat_id).first()
+
+
+def get_player_by_id(chat_id, user_id) -> Optional[Player]:
+    if not user_id:
+        return None
+    return Player.objects.filter(user_id=user_id, chat_id=chat_id).first()
 
 
 class Me:
