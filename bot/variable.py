@@ -15,7 +15,7 @@ from archive.models import Log
 def handle_clear_variables(message: telegram.Message, player: Player, job_queue, **_):
     _ = partial(get_by_user, user=message.from_user)
     player.variable_set.all().delete()
-    send_text = _(Text.VARIABLE_CLEARED, message.from_user.language_code).format(character=player.character_name)
+    send_text = _(Text.VARIABLE_CLEARED, message).format(character=player.character_name)
     sent = message.chat.send_message(send_text, parse_mode='HTML')
     delete_message(message)
     delete_time = 20
@@ -67,7 +67,7 @@ class Assignment:
         )
         if self.old_value is None:
             if not self.variable.value:
-                return _(Text.VARIABLE_ASSIGNED_EMPTY.format(**format_dict))
+                return _(Text.VARIABLE_ASSIGNED_EMPTY).format(**format_dict)
             else:
                 return _(Text.VARIABLE_ASSIGNED).format(**format_dict)
         elif self.old_value == self.variable.value:
