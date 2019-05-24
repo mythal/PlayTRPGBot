@@ -185,7 +185,7 @@ def handle_message(bot, update, job_queue):
 
     language_code: str = message.from_user.language_code
     with_photo = handle_photo(message)
-    if not message.text or not message.text.startswith(('.', '。', '/')):
+    if not message.text or not message.text.startswith(('.', '。')):
         return
     if not is_group_chat(message.chat):
         message.reply_text(_(Text.NOT_GROUP))
@@ -200,15 +200,15 @@ def handle_message(bot, update, job_queue):
         return
 
     handlers = [
-        (re.compile(r'^[.。/](rh?)\b'), handle_normal_roll),
-        (re.compile(r'^[.。/](hd)\b'), handle_normal_roll),
-        (re.compile(r'^[.。/](loh?)\b'), handle_loop_roll),
-        (re.compile(r'^[.。/](coch?[+\-]?h?)\s*'), handle_coc_roll),
-        (re.compile(r'^[.。/](init)\b'), handle_initiative),
-        (re.compile(r'^[.。/](set)\b'), handle_variable_assign),
-        (re.compile(r'^[.。/](list)\b'), handle_list_variables),
-        (re.compile(r'^[.。/](clear)\b'), handle_clear_variables),
-        (re.compile(r'^[.。/](as)\b'), handle_as_say),
+        (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
+        (re.compile(r'^[.。](hd)\b'), handle_normal_roll),
+        (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
+        (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
+        (re.compile(r'^[.。](init)\b'), handle_initiative),
+        (re.compile(r'^[.。](set)\b'), handle_variable_assign),
+        (re.compile(r'^[.。](list)\b'), handle_list_variables),
+        (re.compile(r'^[.。](clear)\b'), handle_clear_variables),
+        (re.compile(r'^[.。](as)\b'), handle_as_say),
     ]
 
     for pat, handler in handlers:

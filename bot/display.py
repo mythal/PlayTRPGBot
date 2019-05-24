@@ -21,7 +21,7 @@ HELP_ZH_HANS = '''<b>基本指令</b>
 
 还有很多功能如战斗轮指示器、临时角色切换等，<a href="http://wiki.aleadea.com/index.php/Telegram_TRPG_%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8C%87%E4%BB%A4%E6%96%87%E6%A1%A3">请点击这里查看详细指令介绍</a>
 请前往 https://log.paotuan.space/ 查看你的日志
-为了输入方便，所有命令开头的 <code>.</code> 都可以用 <code>。</code> 或 <code>/</code> 代替
+为了输入方便，所有命令开头的 <code>.</code> 都可以用 <code>。</code> 代替
 '''
 
 HELP_ZH_HANT = '''<b>基本指令</b>
@@ -40,7 +40,7 @@ HELP_ZH_HANT = '''<b>基本指令</b>
 
 還有很多功能如戰鬥輪指示器、臨時角色切換等，<a href="http://wiki.aleadea.com/index.php/Telegram_TRPG_%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8C%87%E4%BB%A4%E6%96%87%E6%A1%A3">請點擊這裏查看詳細指令介紹</a>
 請前往 https://log.paotuan.space/ 查看你的日誌
-爲了輸入方便，所有命令開頭的 <code>.</code> 都可以用 <code>。</code> 或 <code>/</code> 代替
+爲了輸入方便，所有命令開頭的 <code>.</code> 都可以用 <code>。</code> 代替
 '''
 
 START_ZH_HANS = '''
@@ -303,6 +303,14 @@ zh_hant: Dict[Text, str] = {
 language_map: Dict[str, Dict[Text, str]] = {
     'zh-hans': zh_hans,
     'zh-hant': zh_hant,
+    'zh-Hans': zh_hans,
+    'zh-Hant': zh_hant,
+    'zh-CN': zh_hans,
+    'zh-TW': zh_hant,
+    'zh-HK': zh_hant,
+    'zh-cn': zh_hans,
+    'zh-tw': zh_hant,
+    'zh-hk': zh_hant,
 }
 
 
