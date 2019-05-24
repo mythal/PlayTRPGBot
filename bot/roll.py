@@ -11,11 +11,11 @@ from telegram.ext import JobQueue
 import dice
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
-from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages
+from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages, delete_message
 from .display import Text, get_by_user
 
 
-def set_dice_face(_, update, args, job_queue):
+def set_dice_face(bot: telegram.Bot, update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
@@ -33,6 +33,8 @@ def set_dice_face(_, update, args, job_queue):
         return
     chat.default_dice_face = face
     chat.save()
+    delete_message(message)
+    bot.send_message(message.chat_id, _(Text.DEFAULT_FACE_SETTLED).format(face), parse_mode='HTML')
 
 
 def handle_coc_roll(

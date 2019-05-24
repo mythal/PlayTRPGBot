@@ -145,10 +145,12 @@ class Text(Enum):
     ROLL_SYNTAX_ERROR = auto()
     NOT_TAG = auto()
     EDIT_MESSAGE_FAILED = auto()
+    DEFAULT_FACE_SETTLED = auto()
 
 
 zh_hans: Dict[Text, str] = {
-    Text.EDIT_MESSAGE_FAILED: '系统错误 编辑消息失败 可能因为时间太久',
+    Text.DEFAULT_FACE_SETTLED: '默认骰子面数已设为 {} 面',
+    Text.EDIT_MESSAGE_FAILED: '编辑消息时出现错误',
     Text.NOT_TAG: '必须写至少一个不重复的 tag',
     Text.ZERO_DIVISION: '零不能作除数',
     Text.ROLL_SYNTAX_ERROR: '投骰子时出现语法错误',
@@ -229,6 +231,9 @@ zh_hans: Dict[Text, str] = {
 
 
 zh_hant: Dict[Text, str] = {
+    Text.DEFAULT_FACE_SETTLED: '默認骰子面數已設爲 {} 面',
+    Text.EDIT_MESSAGE_FAILED: '編輯消息時出現錯誤',
+    Text.NOT_TAG: '必須寫至少一個不重複的 tag',
     Text.ZERO_DIVISION: '零不能作除數',
     Text.ROLL_SYNTAX_ERROR: '投骰子時出現語法錯誤',
     Text.VARIABLE_CLEARED: '{character} 的指代已清空',
@@ -239,10 +244,10 @@ zh_hant: Dict[Text, str] = {
                            '<code>{old_value}</code> → <code>{value}</code>',
     Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT: 'GM 可以通過 @ 或回覆別的玩家 <code>.set 指代名 所指內容</code> '
                                                      '來爲別的玩家建立指代。但是你所回覆的消息不和一個玩家所關聯。',
-    Text.VARIABLE_ASSIGN_GM_USAGE: '作爲主持人，你可以通過在 @ 或回覆一位玩家的方式給玩家建立指代',
     Text.VARIABLE_ASSIGN_USAGE: '建立指代： <code>.set HP 42</code>\n'
                                 '指代名可以用中文、英文數字和下劃線，1-32個字符\n'
                                 '可以分多行一次建立多個指代',
+    Text.VARIABLE_ASSIGN_GM_USAGE: '作爲主持人，你可以通過在 @ 或回覆一位玩家的方式給玩家建立指代',
     Text.VARIABLE_ASSIGNED: '{character} 的 <code>{variable}</code> 已設爲 <code>{value}</code>',
     Text.VARIABLE_ASSIGNED_EMPTY: '{character} 的 <code>{variable}</code> 已添加',
     Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 沒有變動，仍然是 <code>{value}</code>',
@@ -255,8 +260,8 @@ zh_hant: Dict[Text, str] = {
     Text.PASSWORD_SUCCESS: '密碼已設置',
     Text.PASSWORD_USAGE: '輸入 <code>/password [你的密碼]</code> 設置密碼。密碼中不能有空格。',
     Text.DELETE_FAIL: '刪除消息失敗，請檢查一下 bot 的權限設置',
-    Text.HELP_TEXT: HELP_ZH_HANT,
-    Text.START_TEXT: HELP_ZH_HANS,
+    Text.HELP_TEXT: HELP_ZH_HANS,
+    Text.START_TEXT: START_ZH_HANS,
     Text.ERROR: '錯誤',
     Text.UNKNOWN_COMMAND: '未知指令',
     Text.RECORD_NOT_FOUND: '沒有找到記錄，請確認所回覆的消息',
@@ -305,7 +310,6 @@ zh_hant: Dict[Text, str] = {
     Text.INIT_USAGE: '用法： <code>.init [數字]</code> 或 <code>.init [角色名] = [數字]</code>',
     Text.INIT_WITHOUT_ROUND: '請先用 /round 指令開啓回合輪',
 }
-
 
 default_text = zh_hans
 
