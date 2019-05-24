@@ -424,7 +424,7 @@ def inline_query(_, update):
     try:
         _, text = dice.roll(query, 20)
     except dice.RollError:
-        update.inline_query.answer('出错了')
+        return update.inline_query.answer('出错了')
     if query.find(',') != -1:
         choice_item = query.split(',')
     elif query.find('，') != -1:

@@ -1,11 +1,10 @@
 import secrets
-
-from enum import Enum
+import enum
 
 from pypeg2 import *
 
 
-class DiceErrorKind(Enum):
+class DiceErrorKind(enum.Enum):
     ZERO_DIVISION = 'ZERO_DIVISION'
     ROLL_SYNTAX_ERROR = 'ROLL_SYNTAX_ERROR'
 

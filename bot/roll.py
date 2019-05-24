@@ -129,7 +129,7 @@ def handle_normal_roll(message: telegram.Message, command: str, name: str, start
         if len(e.args) > 0:
             error_kind = e.args[0]
             try:
-                error_text = Text[error_kind]
+                error_text = Text[error_kind.value]
             except KeyError:
                 pass
         return error_message(message, job_queue, get_by_user(error_text, message.from_user))
