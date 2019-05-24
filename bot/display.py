@@ -52,7 +52,7 @@ START_ZH_HANS = '''
 
 开始前需要输入 <code>/name 你的角色名</code>，<a href="http://wiki.aleadea.com/index.php/Telegram_TRPG_%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8C%87%E4%BB%A4%E6%96%87%E6%A1%A3">这里是所有命令说明</a>
 
-<a href="https://logs.paotuan.space"> 在这里可以查看记录下的日志</a>
+<a href="https://logs.paotuan.space">在这里可以查看记录下的日志</a>
 
 祝冒险愉快！
 '''
@@ -67,7 +67,7 @@ START_ZH_HANT = '''
 
 開始前需要輸入 <code>/name 你的角色名</code>，<a href="http://wiki.aleadea.com/index.php/Telegram_TRPG_%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%8C%87%E4%BB%A4%E6%96%87%E6%A1%A3">這裏是所有命令說明</a>
 
-<a href="https://logs.paotuan.space"> 在這裏可以查看記錄下的日誌</a>
+<a href="https://logs.paotuan.space">在這裏可以查看記錄下的日誌</a>
 
 祝冒險愉快！
 '''
