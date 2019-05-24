@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Optional
 
 import telegram
@@ -7,7 +8,7 @@ from telegram.ext import JobQueue
 
 from archive.models import Chat, Log
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
-from .display import Text, get
+from .display import Text, get_by_user
 from .pattern import ME_REGEX, VARIABLE_REGEX
 from game.models import Player
 
@@ -21,11 +22,13 @@ def is_group_chat(chat: telegram.Chat) -> bool:
 
 
 def delete_message(message: telegram.Message):
+    _ = partial(get_by_user, user=message.from_user)
+
     try:
         message.delete()
     except TelegramError:
         try:
-            message.reply_text(get(Text.DELETE_FAIL))
+            message.reply_text(_(Text.DELETE_FAIL))
         except TelegramError:
             pass
 
@@ -55,10 +58,11 @@ def is_author(message_id, user_id):
 
 
 def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
+    _ = partial(get_by_user, user=message.from_user)
     delete_time = 15
     try:
         send_text = '<b>[{}]</b> {}'.format(
-            get(Text.ERROR),
+            _(Text.ERROR),
             text,
         )
         sent = message.reply_text(send_text, parse_mode='HTML')

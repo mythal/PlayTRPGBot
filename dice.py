@@ -1,6 +1,13 @@
 import secrets
 
+from enum import Enum
+
 from pypeg2 import *
+
+
+class DiceErrorKind(Enum):
+    ZERO_DIVISION = 'ZERO_DIVISION'
+    ROLL_SYNTAX_ERROR = 'ROLL_SYNTAX_ERROR'
 
 
 class RollError(RuntimeError):
@@ -122,7 +129,7 @@ class Expr(List):
                 if isinstance(current, Mul):
                     value_list[i + 1] = a * b
                 elif b == 0:
-                    raise RollError('要知道，0 不能做除数')
+                    raise RollError(DiceErrorKind.ZERO_DIVISION)
                 else:
                     value_list[i + 1] = a // b
                 value_list[i] = None
@@ -167,5 +174,5 @@ def roll(text, default_dice_face):
     try:
         roll_ast = parse(text, Roll)
     except SyntaxError:
-        raise RollError('格式错误!')
+        raise RollError(DiceErrorKind.ROLL_SYNTAX_ERROR)
     return roll_ast.eval(env)

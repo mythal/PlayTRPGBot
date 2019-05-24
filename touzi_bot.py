@@ -242,8 +242,11 @@ DICE_ROLL_PATTERN = re.compile(r'^(\d+)d(\d+)$')
 def command_roll(_, update: Update, args: [str], chat_data: dict):
     msg = update.message
     assert isinstance(msg, telegram.Message)
-    _, text = dice.roll(' '.join(args), chat_data.get('dice', 100))
-    msg.reply_text(text, parse_mode='HTML')
+    try:
+        _, text = dice.roll(' '.join(args), chat_data.get('dice', 100))
+        msg.reply_text(text, parse_mode='HTML')
+    except dice.RollError:
+        msg.reply_text('出错了！')
 
 
 def coc_trait(_, update: Update):
@@ -418,7 +421,10 @@ def inline_query(_, update):
     query = update.inline_query.query
     assert isinstance(query, str)
     query = query.strip()
-    _, text = dice.roll(query, 20)
+    try:
+        _, text = dice.roll(query, 20)
+    except dice.RollError:
+        update.inline_query.answer('出错了')
     if query.find(',') != -1:
         choice_item = query.split(',')
     elif query.find('，') != -1:

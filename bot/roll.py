@@ -2,6 +2,7 @@ import pickle
 import re
 import secrets
 import uuid
+from functools import partial
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -11,23 +12,24 @@ import dice
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
 from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages
-from .display import Text, get
+from .display import Text, get_by_user
 
 
 def set_dice_face(_, update, args, job_queue):
     message = update.message
     assert isinstance(message, telegram.Message)
+    _ = partial(get_by_user, user=message.from_user)
     chat = get_chat(message.chat)
     if len(args) != 1:
         return error_message(
             message,
             job_queue,
-            get(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face)
+            _(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face)
         )
     try:
         face = int(args[0])
     except ValueError:
-        error_message(message, job_queue, get(Text.FACE_ONLY_ALLOW_NUMBER))
+        error_message(message, job_queue, _(Text.FACE_ONLY_ALLOW_NUMBER))
         return
     chat.default_dice_face = face
     chat.save()
@@ -39,11 +41,12 @@ def handle_coc_roll(
     """
     Call of Cthulhu
     """
+    _ = partial(get_by_user, user=message.from_user)
     hide = command.find('h') != -1
     text = text.strip()
     numbers = re.findall(r'\d{1,2}', text)
     if len(numbers) == 0:
-        return error_message(message, job_queue, get(Text.COC_NEED_SKILL_VALUE))
+        return error_message(message, job_queue, _(Text.COC_NEED_SKILL_VALUE))
 
     rolled_list = [secrets.randbelow(100) + 1]
     rolled = rolled_list[0]
@@ -60,27 +63,27 @@ def handle_coc_roll(
             rolled_list.append(secrets.randbelow(100) + 1)
         if modifier == '+':
             rolled = min(rolled_list)
-            modification += '{}:'.format(get(Text.COC_BONUS_DIE))
+            modification += '{}:'.format(_(Text.COC_BONUS_DIE))
         elif modifier == '-':
             rolled = max(rolled_list)
-            modification += '{}:'.format(get(Text.COC_PENALTY_DIE))
+            modification += '{}:'.format(_(Text.COC_PENALTY_DIE))
         modification += '<code>[{}]</code> '.format(', '.join(map(str, rolled_list)))
     half_skill_number = skill_number >> 1
     skill_number_divide_5 = skill_number // 5
     if rolled == 1:
-        remark = get(Text.COC_CRITICAL)
+        remark = _(Text.COC_CRITICAL)
     elif rolled <= skill_number_divide_5:
-        remark = get(Text.COC_EXTREME_SUCCESS)
+        remark = _(Text.COC_EXTREME_SUCCESS)
     elif rolled <= half_skill_number:
-        remark = get(Text.COC_HARD_SUCCESS)
+        remark = _(Text.COC_HARD_SUCCESS)
     elif rolled <= skill_number:
-        remark = get(Text.COC_REGULAR_SUCCESS)
+        remark = _(Text.COC_REGULAR_SUCCESS)
     elif rolled == 100:
-        remark = get(Text.COC_FUMBLE)
+        remark = _(Text.COC_FUMBLE)
     elif rolled >= 95 and skill_number < 50:
-        remark = get(Text.COC_FUMBLE)
+        remark = _(Text.COC_FUMBLE)
     else:
-        remark = get(Text.COC_FAIL)
+        remark = _(Text.COC_FAIL)
     result_text = '{} → <code>{}</code> {}\n\n{}'.format(text, rolled, remark, modification)
     handle_roll(message, name, result_text, job_queue, chat, hide)
 
@@ -90,14 +93,16 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
     """
     Tales from the Loop
     """
+    _ = partial(get_by_user, user=message.from_user)
     hide = command[-1] == 'h'
     text = text.strip()
     roll_match = LOOP_ROLL_REGEX.match(text)
+
     if not roll_match:
-        return error_message(message, job_queue, get(Text.LOOP_SYNTAX_ERROR))
+        return error_message(message, job_queue, _(Text.LOOP_SYNTAX_ERROR))
     number = int(roll_match.group(1))
     if number == 0:
-        return error_message(message, job_queue, get(Text.LOOP_ZERO_DICE))
+        return error_message(message, job_queue, _(Text.LOOP_ZERO_DICE))
     counter = 0
     result_list = []
     for _ in range(number):
@@ -120,11 +125,19 @@ def handle_normal_roll(message: telegram.Message, command: str, name: str, start
     try:
         _, result_text = dice.roll(text, chat.default_dice_face)
     except dice.RollError as e:
-        return error_message(message, job_queue, e.args[0])
+        error_text = Text.ERROR
+        if len(e.args) > 0:
+            error_kind = e.args[0]
+            try:
+                error_text = Text[error_kind]
+            except KeyError:
+                pass
+        return error_message(message, job_queue, get_by_user(error_text, message.from_user))
     handle_roll(message, name, result_text, job_queue, chat, hide)
 
 
 def handle_roll(message: telegram.Message, name: str, result_text: str, job_queue: JobQueue, chat: Chat, hide=False):
+    _ = partial(get_by_user, user=message.from_user)
     kind = LogKind.ROLL.value
     if hide:
         roll_id = str(uuid.uuid4())
@@ -133,16 +146,16 @@ def handle_roll(message: telegram.Message, name: str, result_text: str, job_queu
             'text': result_text,
             'chat_id': message.chat_id,
         }))
-        keyboard = [[InlineKeyboardButton(get(Text.GM_LOOKUP), callback_data=key)]]
+        keyboard = [[InlineKeyboardButton(_(Text.GM_LOOKUP), callback_data=key)]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        text = '<b>{}</b> {}'.format(name, get(Text.ROLL_HIDE_DICE))
+        text = '<b>{}</b> {}'.format(name, _(Text.ROLL_HIDE_DICE))
         kind = LogKind.HIDE_DICE.value
     else:
         text = '{} 🎲 {}'.format(name, result_text)
         reply_markup = None
     if not chat.recording:
-        text = '[{}] '.format(get(Text.NOT_RECORDING)) + text
+        text = '[{}] '.format(_(Text.NOT_RECORDING)) + text
     sent = message.chat.send_message(
         text,
         reply_markup=reply_markup,
@@ -172,16 +185,17 @@ def handle_roll(message: telegram.Message, name: str, result_text: str, job_queu
 def hide_roll_callback(_, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
+    _ = partial(get_by_user, user=query.from_user)
     gm = is_gm(query.message.chat_id, query.from_user.id)
     data = query.data or ''
     if not gm:
-        query.answer(get(Text.ONLY_GM_CAN_LOOKUP), show_alert=True)
+        query.answer(_(Text.ONLY_GM_CAN_LOOKUP), show_alert=True)
     result = redis.get(data)
     if result:
         data = pickle.loads(result)
         text = data['text'].replace('<code>', '').replace('</code>', '')
     else:
-        text = get(Text.HIDE_ROLL_NOT_FOUND)
+        text = _(Text.HIDE_ROLL_NOT_FOUND)
     query.answer(
         show_alert=True,
         text=text,
