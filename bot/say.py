@@ -51,6 +51,15 @@ def get_tag(chat: Chat, name: str):
     return tag
 
 
+def set_photo(log: Log, photo):
+    if not isinstance(photo, telegram.PhotoSize):
+        return
+    log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
+    media = log.media.open('rb+')
+    photo.get_file().download(out=media)
+    media.close()
+
+
 def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                name: str, rpg_message: RpgMessage, edit_log=None, with_photo=None):
     _ = partial(get_by_user, user=message.from_user)
@@ -75,7 +84,30 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     # on edit
     if edit_log:
         assert isinstance(edit_log, Log)
-        bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
+        try:
+            if edit_log.media:
+                if isinstance(with_photo, telegram.PhotoSize):
+                    bot.edit_message_media(
+                        message.chat_id,
+                        edit_log.message_id,
+                        media=telegram.InputMediaPhoto(with_photo),
+                    )
+                    set_photo(edit_log, with_photo)
+                bot.edit_message_caption(
+                    message.chat_id,
+                    edit_log.message_id,
+                    caption=send_text,
+                    parse_mode='HTML',
+                )
+            else:
+                bot.edit_message_text(
+                    send_text,
+                    message.chat_id,
+                    edit_log.message_id,
+                    parse_mode='HTML',
+                )
+        except telegram.TelegramError:
+            return error_message(message, job_queue, _(Text.EDIT_MESSAGE_FAILED))
         delete_message(message)
         edit_log.tag.clear()
         for tag_name in rpg_message.tags:
@@ -129,8 +161,4 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
         created_log.tag.add(get_tag(chat, name))
     created_log.save()
     # download and write photo file
-    if isinstance(with_photo, telegram.PhotoSize):
-        created_log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
-        media = created_log.media.open('rb+')
-        with_photo.get_file().download(out=media)
-        media.close()
+    set_photo(created_log, with_photo)

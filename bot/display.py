@@ -144,9 +144,11 @@ class Text(Enum):
     ZERO_DIVISION = auto()
     ROLL_SYNTAX_ERROR = auto()
     NOT_TAG = auto()
+    EDIT_MESSAGE_FAILED = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.EDIT_MESSAGE_FAILED: '系统错误 编辑消息失败 可能因为时间太久',
     Text.NOT_TAG: '必须写至少一个不重复的 tag',
     Text.ZERO_DIVISION: '零不能作除数',
     Text.ROLL_SYNTAX_ERROR: '投骰子时出现语法错误',

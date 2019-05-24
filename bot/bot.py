@@ -180,7 +180,7 @@ def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message
     delete_message(message)
 
 
-def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int):
+def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int, with_photo=None):
     target = message.reply_to_message
 
     _ = partial(get_by_user, user=message.from_user)
@@ -194,7 +194,7 @@ def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int):
         error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
     elif log.user_id == user_id:
         rpg_message = RpgMessage(message, start)
-        handle_say(bot, chat, job_queue, message, log.character_name, rpg_message, edit_log=log)
+        handle_say(bot, chat, job_queue, message, log.character_name, rpg_message, edit_log=log, with_photo=with_photo)
         delete_message(message)
     else:
         error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
@@ -307,7 +307,8 @@ def handle_message(bot, update, job_queue):
         elif command == 'del':
             handle_delete(chat, message, job_queue)
         elif command == 'edit':
-            handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end())
+            handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end(),
+                        with_photo=with_photo)
         elif command == 'tag':
             handle_add_tag(bot, chat, job_queue, message)
         elif command == 's':
