@@ -84,39 +84,6 @@ def delay_delete_messages(bot: telegram.Bot, job):
             pass
 
 
-def message_text_convert(message: telegram.Message) -> str:
-    if not message.text:
-        return ''
-    assert isinstance(message.text, str)
-    last_index = 0
-    segments = []
-
-    def push_name(pushed_player: Player):
-        segments.append('<b>{}</b>'.format(pushed_player.character_name))
-
-    for entity in message.entities:
-        assert isinstance(entity, telegram.MessageEntity)
-        entity_offset = entity.offset
-        entity_length = entity.length
-        entity_end = entity_offset + entity_length
-        if entity.type == entity.MENTION:
-            segments.append(message.text[last_index:entity_offset])
-            mention = message.text[entity_offset:entity_end]
-            username = mention[1:]  # skip @
-            player = Player.objects.filter(chat_id=message.chat_id, username=username).first()
-            push_name(player)
-            last_index = entity_end
-        elif entity.type == entity.TEXT_MENTION:
-            player = Player.objects.filter(chat_id=message.chat_id, user_id=entity.user.id).first()
-            if not player:
-                continue
-            segments.append(message.text[last_index:entity_offset])
-            push_name(player)
-            last_index = entity_end
-    segments.append(message.text[last_index:])
-    return ''.join(segments)
-
-
 def get_player_by_username(chat_id, username: str) -> Optional[Player]:
     if username.startswith('@'):
         username = username[1:]
@@ -157,35 +124,41 @@ class RpgMessage:
 
         self.segments = []
         self.tags = []
-        if not message.text:
+        if message.caption:
+            text = message.caption
+            entities = message.caption_entities
+        else:
+            text = message.text
+            entities = message.entities
+        if not text:
             return
-        assert isinstance(message.text, str)
+        assert isinstance(text, str)
         last_index = 0
 
-        for entity in message.entities:
+        for entity in entities:
             assert isinstance(entity, telegram.MessageEntity)
             entity_offset = entity.offset
             entity_length = entity.length
             entity_end = entity_offset + entity_length
             if entity.type == entity.MENTION:
-                self.push_text(message.text[last_index:entity_offset])
-                mention = message.text[entity_offset:entity_end]
+                self.push_text(text[last_index:entity_offset])
+                mention = text[entity_offset:entity_end]
                 self.push_mention(mention)
                 last_index = entity_end
             elif entity.type == entity.TEXT_MENTION:
-                self.push_text(message.text[last_index:entity_offset])
+                self.push_text(text[last_index:entity_offset])
                 self.push_text_mention(entity.user)
                 last_index = entity_end
             elif entity.type == entity.HASHTAG:
-                self.push_text(message.text[last_index:entity_offset])
-                self.tags.append(message.text[entity_offset+1:entity_end])
+                self.push_text(text[last_index:entity_offset])
+                self.tags.append(text[entity_offset+1:entity_end])
                 last_index = entity_end
             elif entity.type == entity.BOLD:
-                self.push_text(message.text[last_index:entity_offset])
-                self.segments.append(Bold(message.text[entity_offset:entity_end]))
+                self.push_text(text[last_index:entity_offset])
+                self.segments.append(Bold(text[entity_offset:entity_end]))
                 last_index = entity_end
 
-        self.push_text(message.text[last_index:])
+        self.push_text(text[last_index:])
         if len(self.segments) > 0 and isinstance(self.segments[0], str):
             if start < len(self.segments[0]):
                 self.segments[0] = self.segments[0][start:]
@@ -252,7 +225,7 @@ class RpgMessage:
                 text += '<b>{}</b>'.format(segment.bold)
         text = text.strip()
         if self.tags:
-            return '{} // {}'.format(text, ' '.join(['#{}'.format(tag) for tag in self.tags]))
+            return '{} {}'.format(text, ' '.join(['#{}'.format(tag) for tag in self.tags]))
         else:
             return text
 

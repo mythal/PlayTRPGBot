@@ -135,6 +135,7 @@ class Text(Enum):
     VARIABLE_ASSIGNED_EMPTY = auto()
     VARIABLE_UPDATED = auto()
     VARIABLE_ASSIGN_USAGE = auto()
+    VARIABLE_ASSIGN_GM_USAGE = auto()
     VARIABLE_NOT_CHANGE = auto()
     VARIABLE_CLEARED = auto()
     VARIABLE_LIST_TITLE = auto()
@@ -142,9 +143,11 @@ class Text(Enum):
     VARIABLE_LIST_EMPTY = auto()
     ZERO_DIVISION = auto()
     ROLL_SYNTAX_ERROR = auto()
+    NOT_TAG = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.NOT_TAG: '必须写至少一个不重复的 tag',
     Text.ZERO_DIVISION: '零不能作除数',
     Text.ROLL_SYNTAX_ERROR: '投骰子时出现语法错误',
     Text.VARIABLE_CLEARED: '{character} 的指代已清空',
@@ -158,6 +161,7 @@ zh_hans: Dict[Text, str] = {
     Text.VARIABLE_ASSIGN_USAGE: '建立指代： <code>.set HP 42</code>\n'
                                 '指代名可以用中文、英文数字和下划线，1-32个字符\n'
                                 '可以分多行一次建立多个指代',
+    Text.VARIABLE_ASSIGN_GM_USAGE: '作为主持人，你可以通过在 @ 或回复一位玩家的方式给玩家建立指代',
     Text.VARIABLE_ASSIGNED: '{character} 的 <code>{variable}</code> 已设为 <code>{value}</code>',
     Text.VARIABLE_ASSIGNED_EMPTY: '{character} 的 <code>{variable}</code> 已添加',
     Text.VARIABLE_NOT_CHANGE: '{character} 的 <code>{variable}</code> 没有变动，仍然是 <code>{value}</code>',
@@ -233,6 +237,7 @@ zh_hant: Dict[Text, str] = {
                            '<code>{old_value}</code> → <code>{value}</code>',
     Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT: 'GM 可以通過 @ 或回覆別的玩家 <code>.set 指代名 所指內容</code> '
                                                      '來爲別的玩家建立指代。但是你所回覆的消息不和一個玩家所關聯。',
+    Text.VARIABLE_ASSIGN_GM_USAGE: '作爲主持人，你可以通過在 @ 或回覆一位玩家的方式給玩家建立指代',
     Text.VARIABLE_ASSIGN_USAGE: '建立指代： <code>.set HP 42</code>\n'
                                 '指代名可以用中文、英文數字和下劃線，1-32個字符\n'
                                 '可以分多行一次建立多個指代',
@@ -300,6 +305,8 @@ zh_hant: Dict[Text, str] = {
 }
 
 
+default_text = zh_hans
+
 language_map: Dict[str, Dict[Text, str]] = {
     'zh-hans': zh_hans,
     'zh-hant': zh_hant,
@@ -315,7 +322,10 @@ language_map: Dict[str, Dict[Text, str]] = {
 
 
 def get(x: Text, language_code='zh-hans') -> str:
-    return language_map.get(language_code, zh_hans)[x]
+    result = language_map.get(language_code, zh_hans).get(x, None)
+    if result is None:
+        result = default_text.get(x, '!!!UNKNOWN TEXT!!!')
+    return result
 
 
 def get_by_user(x: Text, user: Optional[telegram.User] = None):

@@ -27,7 +27,7 @@ def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     user_id = message.from_user.id
 
     _ = partial(get_by_user, user=message.from_user)
-    match = pattern.AS_REGEX.match(message.text)
+    match = pattern.AS_REGEX.match(message.caption or message.text)
 
     if not is_gm(chat.chat_id, user_id):
         return error_message(message, job_queue, _(Text.NOT_GM))
@@ -75,11 +75,15 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     # on edit
     if edit_log:
         assert isinstance(edit_log, Log)
+        bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
+        delete_message(message)
+        edit_log.tag.clear()
+        for tag_name in rpg_message.tags:
+            tag = get_tag(chat, tag_name)
+            edit_log.tag.add(tag)
         edit_log.content = text
         edit_log.kind = kind
         edit_log.save()
-        bot.edit_message_text(send_text, message.chat_id, edit_log.message_id, parse_mode='HTML')
-        delete_message(message)
         return
 
     # send message or photo

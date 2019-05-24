@@ -9,7 +9,7 @@ import telegram
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 from telegram.ext.dispatcher import run_async
 
-from bot.say import handle_as_say, handle_say
+from bot.say import handle_as_say, handle_say, get_tag
 from bot.variable import handle_list_variables, handle_variable_assign, handle_clear_variables
 from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback
 from .character_name import set_name, get_name
@@ -101,7 +101,8 @@ def handle_delete(chat, message: telegram.Message, job_queue):
 
 def handle_replace(bot, chat, job_queue, message: telegram.Message, start: int):
     target = message.reply_to_message
-    text = message.text[start:].strip()
+    text = message.caption or message.text
+    text = text[start:].strip()
     _ = partial(get_by_user, user=message.from_user)
 
     if not isinstance(target, telegram.Message):
@@ -121,6 +122,62 @@ def handle_replace(bot, chat, job_queue, message: telegram.Message, start: int):
         delete_message(message)
     else:
         error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
+
+
+def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message):
+    target = message.reply_to_message
+
+    _ = partial(get_by_user, user=message.from_user)
+    if not isinstance(target, telegram.Message):
+        return error_message(message, job_queue, _(Text.NEED_REPLY))
+
+    assert isinstance(message.from_user, telegram.User)
+    user_id = message.from_user.id
+    log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
+    if log is None:
+        error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+        return
+    elif log.user_id != user_id:
+        error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
+        return
+
+    assert isinstance(log, Log)
+    tag_list = []
+    if message.caption:
+        text = message.caption
+        entities = message.caption_entities
+    else:
+        text = message.text
+        entities = message.entities
+    for entity in entities:
+        if isinstance(entity, telegram.MessageEntity) and entity.type == entity.HASHTAG:
+            tag = text[entity.offset+1:entity.offset+entity.length]
+            if tag:
+                tag = get_tag(chat, tag)
+                if tag not in log.tag.all():
+                    tag_list.append(tag)
+    if not tag_list:
+        return error_message(message, job_queue, _(Text.NOT_TAG))
+
+    tag_text = ''.join([' #{}'.format(tag.name) for tag in tag_list])
+
+    if target.photo:
+        edit_text = str(target.caption_html) + tag_text
+        bot.edit_message_caption(
+            chat_id=target.chat_id,
+            message_id=target.message_id,
+            caption=edit_text,
+            parse_mode='HTML',
+        )
+    else:
+        edit_text = str(target.text_html) + tag_text
+        target.edit_text(edit_text, parse_mode='HTML')
+
+    for tag in tag_list:
+        log.tag.add(tag)
+
+    log.save()
+    delete_message(message)
 
 
 def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int):
@@ -185,7 +242,10 @@ def handle_message(bot, update, job_queue):
 
     language_code: str = message.from_user.language_code
     with_photo = handle_photo(message)
-    if not message.text or not message.text.startswith(('.', '。')):
+    text = message.text
+    if with_photo:
+        text = message.caption
+    if not text or not text.startswith(('.', '。')):
         return
     if not is_group_chat(message.chat):
         message.reply_text(_(Text.NOT_GROUP))
@@ -212,11 +272,11 @@ def handle_message(bot, update, job_queue):
     ]
 
     for pat, handler in handlers:
-        result = pattern.split(pat, message.text)
+        result = pattern.split(pat, text)
         if not result:
             continue
         command, start = result
-        text = message.text[start:]
+        rest = text[start:]
         handler(
             bot=bot,
             chat=chat,
@@ -224,7 +284,7 @@ def handle_message(bot, update, job_queue):
             command=command,
             start=start,
             name=name,
-            text=text,
+            text=rest,
             message=message,
             job_queue=job_queue,
             with_photo=with_photo,
@@ -232,7 +292,7 @@ def handle_message(bot, update, job_queue):
         )
         return
 
-    edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(message.text.lower())
+    edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(text.lower())
     if edit_command_matched:
         command = edit_command_matched.group(1).lower()
         reply_to = message.reply_to_message
@@ -248,6 +308,8 @@ def handle_message(bot, update, job_queue):
             handle_delete(chat, message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end())
+        elif command == 'tag':
+            handle_add_tag(bot, chat, job_queue, message)
         elif command == 's':
             handle_replace(bot, chat, job_queue, message, start=edit_command_matched.end())
     else:

@@ -35,7 +35,7 @@ def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: 
     if not have_variable:
         content = _(Text.VARIABLE_LIST_EMPTY)
 
-    send_text = '<b>{}</b> #variable\n\n{}'.format(_(Text.VARIABLE_LIST_TITLE).format(character=name), content)
+    send_text = '<b>{}</b>\n\n{}'.format(_(Text.VARIABLE_LIST_TITLE).format(character=name), content)
     list_message = message.chat.send_message(send_text, parse_mode='HTML')
     delete_message(message)
     delete_time = 30
@@ -102,6 +102,7 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
     _ = partial(get_by_user, user=message.from_user)
     is_gm = player.is_gm
     assign_player_list = []
+    text = message.caption or message.text
     if is_gm:
         for entity in message.entities:
             assert isinstance(entity, telegram.MessageEntity)
@@ -110,12 +111,16 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
             end = offset + length
             assign_player = None
             if entity.type == entity.MENTION:
-                assign_player = get_player_by_username(message.chat_id, message.text[offset:end])
+                assign_player = get_player_by_username(message.chat_id, text[offset:end])
             elif entity.type == entity.TEXT_MENTION:
                 assign_player = get_player_by_id(message.chat_id, entity.user.id)
             if assign_player:
                 assign_player_list.append(assign_player)
                 start = end
+            else:
+                error_text = '{}\n\n{}'.format(_(Text.VARIABLE_ASSIGN_USAGE), _(Text.VARIABLE_ASSIGN_GM_USAGE))
+                error_message(message, job_queue, error_text)
+                return
 
     if not assign_player_list:
         user_id = message.from_user.id
@@ -135,7 +140,7 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
             if not player:
                 return error_message(message, job_queue, _(Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT))
         assign_player_list.append(player)
-    text = message.text[start:]
+    text = text[start:]
     assert isinstance(text, str)
     assignment_list = []
     for line in text.splitlines():
