@@ -7,3 +7,4 @@ REDIS_DB = 0
 REDIS_HOST = 'redis'
 LOGGER_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 WEBHOOK_PORT = 9990
+BOT_WEBHOOK_URL = os.environ.get('BOT_WEBHOOK_URL', None)

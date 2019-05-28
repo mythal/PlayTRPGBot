@@ -517,9 +517,9 @@ def run_bot():
     dp.add_error_handler(handle_error)
 
     # Start the Bot
-    if 'WEBHOOK_URL' in os.environ:
+    if const.BOT_WEBHOOK_URL is not None:
         updater.start_webhook(listen='0.0.0.0', port=const.WEBHOOK_PORT, url_path=const.TOKEN)
-        url = os.path.join(os.environ['WEBHOOK_URL'], const.TOKEN)
+        url = os.path.join(const.BOT_WEBHOOK_URL, const.TOKEN)
         updater.bot.set_webhook(url=url)
     else:
         updater.start_polling()

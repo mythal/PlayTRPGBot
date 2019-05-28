@@ -10,8 +10,6 @@ services:
     depends_on:
       - db
       - redis
-    ports:
-      - "127.0.0.1:8880:8880"
     environment:
       - PYTHONPATH=/code
   db:
@@ -26,13 +24,23 @@ services:
     restart: always
     volumes:
       - ./data/redis:/data
+  nginx:
+    image: nginx
+    restart: always
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - web
+      - bot
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/bot.conf:ro
+      - ./data/static:/data/static:ro
+      - ./data/media:/data/media:ro
   bot:
     build: .
     image: quanbrew/play_trpg_bot
     command: python start_bot.py
     restart: always
-    ports:
-      - "127.0.0.1:9990:9990"
     depends_on:
       - db
       - redis
@@ -44,8 +52,6 @@ services:
     build: .
     image: quanbrew/play_trpg_bot
     command: python touzi_bot.py
-    ports:
-      - "127.0.0.1:9991:9991"
     restart: always
     env_file:
       - .env
