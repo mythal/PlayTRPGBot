@@ -136,7 +136,13 @@ class Deletion:
             Variable.objects.filter(id__in=self.variable_id_list).delete()
 
 
-def handle_delete(chat, message: telegram.Message, job_queue: telegram.ext.JobQueue, player: Player, **_):
+def handle_delete(
+        bot: telegram.Bot,
+        chat: Chat,
+        message: telegram.Message,
+        job_queue: telegram.ext.JobQueue,
+        player: Player,
+        **_):
     target = message.reply_to_message
     variables = pattern.VARIABLE_REGEX.findall(message.text)
     _ = partial(get_by_user, user=message.from_user)
@@ -146,7 +152,15 @@ def handle_delete(chat, message: telegram.Message, job_queue: telegram.ext.JobQu
         if isinstance(target, telegram.Message):
             if not player.is_gm:
                 return error_message(message, job_queue, _(Text.NOT_GM))
-            target_player = get_player_by_id(message.chat_id, target.from_user.id)
+            if bot.id == target.from_user.id:
+                log = Log.objects.filter(chat=chat, message_id=target.message_id, deleted=False).first()
+                if not log:
+                    return error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+                target_player = get_player_by_id(chat.chat_id, log.user_id)
+            else:
+                target_player = get_player_by_id(message.chat_id, target.from_user.id)
+        if not target_player:
+            return error_message(message, job_queue, 'Player not found')
         delete_log = ''
         variable_id_list = []
         for variable_name in variables:
