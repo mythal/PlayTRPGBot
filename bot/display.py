@@ -247,6 +247,14 @@ zh_hans: Dict[Text, str] = {
 
 
 zh_hant: Dict[Text, str] = {
+    Text.INTERNAL_ERROR: '內部錯誤，請重試',
+    Text.MUST_SAME_USER: '必須由發出指令的人操作',
+    Text.DELETED: '成功刪除',
+    Text.CANCELED: '已取消',
+    Text.DELETE_CHECK: '確認是否刪除：',
+    Text.CONFIRM_DELETE: '刪除',
+    Text.CANCEL_DELETE: '取消',
+    Text.CHECK_DELETE_VARIABLE: '是否刪除 {character} 的下列變量：',
     Text.DEFAULT_FACE_SETTLED: '默認骰子面數已設爲 {} 面',
     Text.EDIT_MESSAGE_FAILED: '編輯消息時出現錯誤',
     Text.NOT_TAG: '必須寫至少一個不重複的 tag',
