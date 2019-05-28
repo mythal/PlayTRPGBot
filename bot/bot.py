@@ -130,8 +130,7 @@ class Deletion:
                 bot.delete_message(self.chat_id, message_id)
             except telegram.TelegramError:
                 pass
-        if self.message_list:
-            Log.objects.filter(chat_id=self.chat_id, message_id__in=self.message_list).update(deleted=True)
+        Log.objects.filter(chat__chat_id=self.chat_id, message_id__in=self.message_list).delete()
         if self.variable_id_list:
             Variable.objects.filter(id__in=self.variable_id_list).delete()
 
