@@ -160,7 +160,7 @@ def handle_delete(
             else:
                 target_player = get_player_by_id(message.chat_id, target.from_user.id)
         if not target_player:
-            return error_message(message, job_queue, 'Player not found')
+            return error_message(message, job_queue, _(Text.INVALID_TARGET))
         delete_log = ''
         variable_id_list = []
         for variable_name in variables:
@@ -172,6 +172,8 @@ def handle_delete(
             else:
                 delete_log += '${}'.format(variable.name)
             variable_id_list.append(variable.id)
+        if not variable_id_list:
+            return error_message(message, job_queue, _(Text.NOT_FOUND_VARIABLE_TO_DELETE))
         delete_message(message)
         check_text = _(Text.CHECK_DELETE_VARIABLE).format(character=target_player.character_name)
         check_text += '\n<pre>{}</pre>'.format(delete_log)
@@ -191,7 +193,7 @@ def handle_delete(
         reply_markup = delete_reply_markup(message.from_user.language_code)
         deletion = Deletion(message.chat_id, message.from_user.id, message_list=[target.message_id])
     else:
-        error_message(message, job_queue, get_by_user(Text.NEED_REPLY, message.from_user))
+        error_message(message, job_queue, get_by_user(Text.DELETE_USAGE, message.from_user))
         return
     delete_message(message)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)

@@ -80,6 +80,7 @@ class Text(Enum):
     UNKNOWN_COMMAND = auto()
     RECORD_NOT_FOUND = auto()
     NEED_REPLY = auto()
+    DELETE_USAGE = auto()
     DELETE_FAIL = auto()
     CHECK_DELETE_VARIABLE = auto()
     NOT_RECORDING = auto()
@@ -154,9 +155,13 @@ class Text(Enum):
     MUST_SAME_USER = auto()
     DELETED = auto()
     CANCELED = auto()
+    NOT_FOUND_VARIABLE_TO_DELETE = auto()
+    INVALID_TARGET = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.NOT_FOUND_VARIABLE_TO_DELETE: '找不到 {character} 要删除的变量，请用 <code>.list</code> 检查',
+    Text.INVALID_TARGET: '无效的设置对象，请检查',
     Text.INTERNAL_ERROR: '内部错误，请重试',
     Text.MUST_SAME_USER: '必须由发出指令的人操作',
     Text.DELETED: '成功删除',
@@ -200,6 +205,9 @@ zh_hans: Dict[Text, str] = {
     Text.UNKNOWN_COMMAND: '未知指令',
     Text.RECORD_NOT_FOUND: '没有找到记录，请确认所回复的消息',
     Text.NEED_REPLY: '你需要先回复一条 bot 发出的信息',
+    Text.DELETE_USAGE: '你可以用 <code>.del</code> 删除一条消息或者指代。\n'
+                       '要删除消息，请回复需要删除的消息发送 <code>.del</code>\n'
+                       '要删除指代，请以 <code>.del $指代</code> 的形式执行',
     Text.HAVE_NOT_PERMISSION: '你没有对这条信息操作的权限',
     Text.NEED_REPLY_PLAYER_RECORD: '需要回复一条玩家发出的消息',
     Text.NOT_RECORDING: '未记录',
@@ -247,6 +255,8 @@ zh_hans: Dict[Text, str] = {
 
 
 zh_hant: Dict[Text, str] = {
+    Text.NOT_FOUND_VARIABLE_TO_DELETE: '找不到 {character} 要刪除的變量，請用 <code>.list</code> 檢查',
+    Text.INVALID_TARGET: '無效的設置對象，請檢查',
     Text.INTERNAL_ERROR: '內部錯誤，請重試',
     Text.MUST_SAME_USER: '必須由發出指令的人操作',
     Text.DELETED: '成功刪除',
@@ -290,6 +300,9 @@ zh_hant: Dict[Text, str] = {
     Text.UNKNOWN_COMMAND: '未知指令',
     Text.RECORD_NOT_FOUND: '沒有找到記錄，請確認所回覆的消息',
     Text.NEED_REPLY: '你需要先回復一條 bot 發出的信息',
+    Text.DELETE_USAGE: '你可以用 <code>.del</code> 刪除一條消息或者指代。\n'
+                       '要刪除消息，請回復需要刪除的消息發送 <code>.del</code>\n'
+                       '要刪除指代，請以 <code>.del $指代</code> 的形式執行',
     Text.HAVE_NOT_PERMISSION: '你沒有對這條信息操作的權限',
     Text.NEED_REPLY_PLAYER_RECORD: '需要回復一條玩家發出的消息',
     Text.NOT_RECORDING: '未記錄',
