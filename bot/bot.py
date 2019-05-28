@@ -1,11 +1,13 @@
 import datetime
 import logging
 import os
+import pickle
 import re
 from hashlib import sha256
 from functools import partial
 
 import telegram
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 from telegram.ext.dispatcher import run_async
 
@@ -17,11 +19,12 @@ from .round_counter import round_inline_callback, start_round, hide_round,\
     public_round, next_turn, handle_initiative
 from . import pattern
 from . import const
-from .display import Text, get_by_user
-from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message, get_player_by_id
+from .display import Text, get_by_user, get
+from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message,\
+    get_player_by_id, delay_delete_messages, redis
 
 from archive.models import Chat, Log
-from game.models import Player
+from game.models import Player, Variable
 
 # Enable logging
 logging.basicConfig(format=const.LOGGER_FORMAT, level=logging.INFO)
@@ -67,6 +70,28 @@ def bot_help(_, update):
     update.message.reply_text(send_text, parse_mode='HTML')
 
 
+def handle_delete_callback(bot: telegram.Bot, query: telegram.CallbackQuery):
+    def _(t: Text):
+        return get_by_user(t, user=query.from_user)
+    message = query.message
+    assert isinstance(message, telegram.Message)
+    key = 'delete:{}'.format(message.message_id)
+    deletion_raw = redis.get(key)
+    if not deletion_raw:
+        query.answer(_(Text.INTERNAL_ERROR))
+        return
+    deletion: Deletion = pickle.loads(deletion_raw)
+    if deletion.user_id != query.from_user.id:
+        query.answer(_(Text.MUST_SAME_USER))
+        return
+    delete_message(message)
+    if query.data == 'delete:cancel':
+        query.answer(_(Text.CANCELED))
+    elif query.data == 'delete:confirm':
+        deletion.do(bot)
+        query.answer(_(Text.DELETED))
+
+
 @run_async
 def inline_callback(bot, update):
     query = update.callback_query
@@ -75,28 +100,95 @@ def inline_callback(bot, update):
     gm = is_gm(query.message.chat_id, query.from_user.id)
     if data.startswith('round'):
         round_inline_callback(bot, query, gm)
-    if data.startswith('hide_roll'):
+    elif data.startswith('hide_roll'):
         hide_roll_callback(bot, update)
+    elif data.startswith('delete'):
+        handle_delete_callback(bot, query)
     else:
         query.answer(show_alert=True, text=get_by_user(Text.UNKNOWN_COMMAND, query.from_user))
 
 
-def handle_delete(chat, message: telegram.Message, job_queue):
+def delete_reply_markup(language_code: str):
+    def _(t: Text):
+        return get(t)
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(_(Text.CANCEL_DELETE), callback_data='delete:cancel'),
+        InlineKeyboardButton(_(Text.CONFIRM_DELETE), callback_data='delete:confirm'),
+    ]])
+
+
+class Deletion:
+    def __init__(self, chat_id, user_id, message_list=None, variable_id_list=None):
+        self.chat_id = chat_id
+        self.user_id = user_id
+        self.message_list = message_list or []
+        self.variable_id_list = variable_id_list or None
+
+    def do(self, bot: telegram.Bot):
+        for message_id in self.message_list:
+            try:
+                bot.delete_message(self.chat_id, message_id)
+            except telegram.TelegramError:
+                pass
+        if self.message_list:
+            Log.objects.filter(chat_id=self.chat_id, message_id__in=self.message_list).update(deleted=True)
+        if self.variable_id_list:
+            Variable.objects.filter(id__in=self.variable_id_list).delete()
+
+
+def handle_delete(chat, message: telegram.Message, job_queue: telegram.ext.JobQueue, player: Player, **_):
     target = message.reply_to_message
-    if isinstance(target, telegram.Message):
+    variables = pattern.VARIABLE_REGEX.findall(message.text)
+    _ = partial(get_by_user, user=message.from_user)
+    # delete variable
+    if len(variables) > 0:
+        target_player: Player = player
+        if isinstance(target, telegram.Message):
+            if not player.is_gm:
+                return error_message(message, job_queue, _(Text.NOT_GM))
+            target_player = get_player_by_id(message.chat_id, target.from_user.id)
+        delete_log = ''
+        variable_id_list = []
+        for variable_name in variables:
+            variable = Variable.objects.filter(name__iexact=variable_name, player=target_player).first()
+            if not variable:
+                continue
+            if variable.value:
+                delete_log += '${} = {}\n'.format(variable.name, variable.value)
+            else:
+                delete_log += '${}'.format(variable.name)
+            variable_id_list.append(variable.id)
+        delete_message(message)
+        check_text = _(Text.CHECK_DELETE_VARIABLE).format(character=target_player.character_name)
+        check_text += '\n<pre>{}</pre>'.format(delete_log)
+        reply_markup = delete_reply_markup(message.from_user.language_code)
+        deletion = Deletion(chat_id=message.chat_id, user_id=message.from_user.id, variable_id_list=variable_id_list)
+    # delete message
+    elif isinstance(target, telegram.Message):
         user_id = message.from_user.id
         log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
         if log is None:
             error_message(message, job_queue, get_by_user(Text.RECORD_NOT_FOUND, message.from_user))
-        elif log.user_id == user_id or is_gm(message.chat_id, user_id):
-            delete_message(target)
-            delete_message(message)
-            log.deleted = True
-            log.save()
-        else:
+            return
+        elif log.user_id != user_id and not is_gm(message.chat_id, user_id):
             error_message(message, job_queue, get_by_user(Text.HAVE_NOT_PERMISSION, message.from_user))
+            return
+        check_text = _(Text.DELETE_CHECK) + '\n\n{}'.format(target.caption_html or target.text_html)
+        reply_markup = delete_reply_markup(message.from_user.language_code)
+        deletion = Deletion(message.chat_id, message.from_user.id, message_list=[target.message_id])
     else:
         error_message(message, job_queue, get_by_user(Text.NEED_REPLY, message.from_user))
+        return
+    delete_message(message)
+    sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
+    key = 'delete:{}'.format(sent.message_id)
+    redis.set(key, pickle.dumps(deletion))
+    redis.expire(key, 300)
+    context = dict(
+        chat_id=message.chat_id,
+        message_id_list=(sent.message_id,),
+    )
+    job_queue.run_once(delay_delete_messages, 30, context)
 
 
 def handle_replace(bot, chat, job_queue, message: telegram.Message, start: int):
@@ -269,6 +361,7 @@ def handle_message(bot, update, job_queue):
         (re.compile(r'^[.。](list)\b'), handle_list_variables),
         (re.compile(r'^[.。](clear)\b'), handle_clear_variables),
         (re.compile(r'^[.。](as)\b'), handle_as_say),
+        (re.compile(r'^[.。](del)\b'), handle_delete),
     ]
 
     for pat, handler in handlers:
@@ -304,8 +397,6 @@ def handle_message(bot, update, job_queue):
             handle_lift(message, job_queue, chat)
         elif reply_to.from_user.id != bot.id:
             error_message(message, job_queue, _(Text.NEED_REPLY_PLAYER_RECORD))
-        elif command == 'del':
-            handle_delete(chat, message, job_queue)
         elif command == 'edit':
             handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end(),
                         with_photo=with_photo)

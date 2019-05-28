@@ -81,6 +81,7 @@ class Text(Enum):
     RECORD_NOT_FOUND = auto()
     NEED_REPLY = auto()
     DELETE_FAIL = auto()
+    CHECK_DELETE_VARIABLE = auto()
     NOT_RECORDING = auto()
     EMPTY_NAME = auto()
     NOT_GM = auto()
@@ -146,9 +147,24 @@ class Text(Enum):
     NOT_TAG = auto()
     EDIT_MESSAGE_FAILED = auto()
     DEFAULT_FACE_SETTLED = auto()
+    DELETE_CHECK = auto()
+    CONFIRM_DELETE = auto()
+    CANCEL_DELETE = auto()
+    INTERNAL_ERROR = auto()
+    MUST_SAME_USER = auto()
+    DELETED = auto()
+    CANCELED = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.INTERNAL_ERROR: '内部错误，请重试',
+    Text.MUST_SAME_USER: '必须由发出指令的人操作',
+    Text.DELETED: '成功删除',
+    Text.CANCELED: '已取消',
+    Text.DELETE_CHECK: '确认是否删除：',
+    Text.CONFIRM_DELETE: '删除',
+    Text.CANCEL_DELETE: '取消',
+    Text.CHECK_DELETE_VARIABLE: '是否删除 {character} 的下列变量：',
     Text.DEFAULT_FACE_SETTLED: '默认骰子面数已设为 {} 面',
     Text.EDIT_MESSAGE_FAILED: '编辑消息时出现错误',
     Text.NOT_TAG: '必须写至少一个不重复的 tag',
