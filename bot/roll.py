@@ -11,7 +11,7 @@ from telegram.ext import JobQueue
 import dice
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
-from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages, delete_message
+from .system import RpgMessage, get_chat, error_message, redis, is_gm, delay_delete_messages, delete_message, HideRoll
 from .display import Text, get_by_user
 
 
@@ -142,13 +142,9 @@ def handle_roll(message: telegram.Message, name: str, result_text: str, job_queu
     _ = partial(get_by_user, user=message.from_user)
     kind = LogKind.ROLL.value
     if hide:
-        roll_id = str(uuid.uuid4())
-        key = 'hide_roll:{}'.format(roll_id)
-        redis.set(key, pickle.dumps({
-            'text': result_text,
-            'chat_id': message.chat_id,
-        }))
-        keyboard = [[InlineKeyboardButton(_(Text.GM_LOOKUP), callback_data=key)]]
+        hide_roll = HideRoll(message.chat_id, result_text)
+        hide_roll.set()
+        keyboard = [[InlineKeyboardButton(_(Text.GM_LOOKUP), callback_data=hide_roll.key())]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         text = '<b>{}</b> {}'.format(name, _(Text.ROLL_HIDE_DICE))
@@ -189,13 +185,12 @@ def hide_roll_callback(_, update):
     assert isinstance(query, telegram.CallbackQuery)
     _ = partial(get_by_user, user=query.from_user)
     gm = is_gm(query.message.chat_id, query.from_user.id)
-    data = query.data or ''
+    key = query.data
     if not gm:
         query.answer(_(Text.ONLY_GM_CAN_LOOKUP), show_alert=True)
-    result = redis.get(data)
-    if result:
-        data = pickle.loads(result)
-        text = data['text'].replace('<code>', '').replace('</code>', '')
+    hide_roll = HideRoll.get(key)
+    if hide_roll:
+        text = hide_roll.text
     else:
         text = _(Text.HIDE_ROLL_NOT_FOUND)
     query.answer(

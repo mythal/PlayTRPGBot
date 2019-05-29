@@ -1,7 +1,6 @@
 import datetime
 import logging
 import os
-import pickle
 import re
 from hashlib import sha256
 from functools import partial
@@ -12,6 +11,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from telegram.ext.dispatcher import run_async
 
 from bot.say import handle_as_say, handle_say, get_tag
+from bot.system import Deletion
 from bot.variable import handle_list_variables, handle_variable_assign, handle_clear_variables
 from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback
 from .character_name import set_name, get_name
@@ -21,7 +21,7 @@ from . import pattern
 from . import const
 from .display import Text, get_by_user, get
 from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message,\
-    get_player_by_id, delay_delete_messages, redis
+    get_player_by_id, delay_delete_messages
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -75,12 +75,11 @@ def handle_delete_callback(bot: telegram.Bot, query: telegram.CallbackQuery):
         return get_by_user(t, user=query.from_user)
     message = query.message
     assert isinstance(message, telegram.Message)
-    key = 'delete:{}'.format(message.message_id)
-    deletion_raw = redis.get(key)
-    if not deletion_raw:
-        query.answer(_(Text.INTERNAL_ERROR))
+    deletion = Deletion.get(message.chat_id, message.message_id)
+    if not deletion:
+        query.answer(_(Text.INTERNAL_ERROR), alert=True)
+        delete_message(message)
         return
-    deletion: Deletion = pickle.loads(deletion_raw)
     if deletion.user_id != query.from_user.id:
         query.answer(_(Text.MUST_SAME_USER))
         return
@@ -115,24 +114,6 @@ def delete_reply_markup(language_code: str):
         InlineKeyboardButton(_(Text.CANCEL_DELETE), callback_data='delete:cancel'),
         InlineKeyboardButton(_(Text.CONFIRM_DELETE), callback_data='delete:confirm'),
     ]])
-
-
-class Deletion:
-    def __init__(self, chat_id, user_id, message_list=None, variable_id_list=None):
-        self.chat_id = chat_id
-        self.user_id = user_id
-        self.message_list = message_list or []
-        self.variable_id_list = variable_id_list or None
-
-    def do(self, bot: telegram.Bot):
-        for message_id in self.message_list:
-            try:
-                bot.delete_message(self.chat_id, message_id)
-            except telegram.TelegramError:
-                pass
-        Log.objects.filter(chat__chat_id=self.chat_id, message_id__in=self.message_list).delete()
-        if self.variable_id_list:
-            Variable.objects.filter(id__in=self.variable_id_list).delete()
 
 
 def handle_delete(
@@ -196,9 +177,7 @@ def handle_delete(
         return
     delete_message(message)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
-    key = 'delete:{}'.format(sent.message_id)
-    redis.set(key, pickle.dumps(deletion))
-    redis.expire(key, 300)
+    deletion.set(sent.message_id)
     context = dict(
         chat_id=message.chat_id,
         message_id_list=(sent.message_id,),

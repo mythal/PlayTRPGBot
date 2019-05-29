@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+import pickle
+import re
 from functools import partial
 from typing import Optional
+from uuid import uuid4
 
 import telegram
 from redis import Redis
@@ -10,7 +15,7 @@ from archive.models import Chat, Log
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
 from .display import Text, get_by_user
 from .pattern import ME_REGEX, VARIABLE_REGEX
-from game.models import Player
+from game.models import Player, Variable
 
 
 class NotGm(Exception):
@@ -231,3 +236,69 @@ class RpgMessage:
 
 
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+
+
+class HideRoll:
+    expire_time = 30000
+    REMOVE_TAG = re.compile(r'</?\w+>')
+
+    def __init__(self, chat_id, text: str):
+        self.chat_id = chat_id
+        self._text = text
+        self.id = uuid4()
+
+    def key(self):
+        return 'hide_roll:{}'.format(self.id)
+
+    def set(self):
+        payload = pickle.dumps(self)
+        key = self.key()
+        redis.set(key, payload)
+
+    @property
+    def text(self) -> str:
+        return self.REMOVE_TAG.sub('', self._text)
+
+    @staticmethod
+    def get(key) -> Optional[HideRoll]:
+        payload = redis.get(key)
+        if not payload:
+            return None
+        return pickle.loads(payload)
+
+
+class Deletion:
+    expire_time = 300
+
+    def __init__(self, chat_id, user_id, message_list=None, variable_id_list=None):
+        self.chat_id = chat_id
+        self.user_id = user_id
+        self.message_list = message_list or []
+        self.variable_id_list = variable_id_list or None
+
+    @staticmethod
+    def key(chat_id, message_id) -> str:
+        return 'delete:{}:{}'.format(chat_id, message_id)
+
+    @staticmethod
+    def get(chat_id, message_id) -> Optional[Deletion]:
+        payload = redis.get(Deletion.key(chat_id, message_id))
+        if not payload:
+            return None
+        return pickle.loads(payload)
+
+    def set(self, message_id):
+        key = Deletion.key(self.chat_id, message_id)
+        payload = pickle.dumps(self)
+        redis.set(key, payload)
+        redis.expire(key, self.expire_time)
+
+    def do(self, bot: telegram.Bot):
+        for message_id in self.message_list:
+            try:
+                bot.delete_message(self.chat_id, message_id)
+            except telegram.TelegramError:
+                pass
+        Log.objects.filter(chat__chat_id=self.chat_id, message_id__in=self.message_list).delete()
+        if self.variable_id_list:
+            Variable.objects.filter(id__in=self.variable_id_list).delete()
