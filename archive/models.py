@@ -2,6 +2,7 @@ from enum import Enum, auto
 from hashlib import sha256
 
 from django.db import models
+from django.core.cache import cache
 
 
 class LogKind(Enum):
@@ -34,7 +35,12 @@ class Chat(models.Model):
         return self.log_set.filter(deleted=False).order_by('created')
 
     def log_count(self):
-        return self.all_log().count()
+        key = 'chat:counter:{}'.format(self.chat_id)
+        counter = cache.get(key)
+        if not counter:
+            counter = self.all_log().count()
+            cache.set(key, counter, 60*60)
+        return counter
 
     def validate(self, password):
         if not self.password:

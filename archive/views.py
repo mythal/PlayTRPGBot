@@ -2,6 +2,7 @@ import datetime
 
 from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.cache import cache_page
 
 from . import forms
 from .export import EXPORT_METHOD
@@ -39,6 +40,7 @@ def chat(request, chat_id):
         return render(request, 'chat_password.html', dict(chat=current, form=form))
 
 
+@cache_page(60)
 def export(request, chat_id, title: str, method: str):
     now = datetime.datetime.now()
     current = get_object_or_404(Chat, id=chat_id)
