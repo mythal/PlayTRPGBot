@@ -340,10 +340,10 @@ def handle_message(bot, update, job_queue):
         return
     chat = get_chat(message.chat)
     player = get_player_by_id(message.chat_id, message.from_user.id)
-    name = player.character_name
-    if not name:
+    if not player:
         error_message(message, job_queue, _(Text.NOT_SET_NAME))
         return
+    name = player.character_name
 
     handlers = [
         (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
