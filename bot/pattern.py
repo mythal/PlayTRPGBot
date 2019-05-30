@@ -24,7 +24,7 @@ VARIABLE_MODIFY_REGEX = re.compile(r'^\s*[$¥]?([\w_0-9]{1,32})\s*([+\-])\s*')
 
 VARIABLE_IGNORE_HEAD = re.compile(r'^\s*=\s*')
 
-EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|tag|s)\b')
+EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|tag)\b')
 
 
 def split(pattern, text: str) -> Optional[Tuple[str, int]]:

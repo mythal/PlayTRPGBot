@@ -185,31 +185,6 @@ def handle_delete(
     job_queue.run_once(delay_delete_messages, 30, context)
 
 
-def handle_replace(bot, chat, job_queue, message: telegram.Message, start: int):
-    target = message.reply_to_message
-    text = message.caption or message.text
-    text = text[start:].strip()
-    _ = partial(get_by_user, user=message.from_user)
-
-    if not isinstance(target, telegram.Message):
-        return error_message(message, job_queue, _(Text.NEED_REPLY))
-    try:
-        [old, new] = filter(lambda x: x != '', text.split('/'))
-    except ValueError:
-        return error_message(message, job_queue, _(Text.REPLACE_USAGE))
-    assert isinstance(message.from_user, telegram.User)
-    user_id = message.from_user.id
-    log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
-    text = log.content.replace(old, new)
-    if log is None:
-        error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
-    elif log.user_id == user_id:
-        handle_say(bot, chat, job_queue, message, log.character_name, text, edit_log=log)
-        delete_message(message)
-    else:
-        error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
-
-
 def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message):
     target = message.reply_to_message
 
@@ -398,8 +373,6 @@ def handle_message(bot, update, job_queue):
                         with_photo=with_photo)
         elif command == 'tag':
             handle_add_tag(bot, chat, job_queue, message)
-        elif command == 's':
-            handle_replace(bot, chat, job_queue, message, start=edit_command_matched.end())
     else:
         rpg_message = RpgMessage(message, start=1)
         handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
