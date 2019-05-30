@@ -298,6 +298,8 @@ def handle_lift(message: telegram.Message, job_queue, chat: Chat):
     elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
         return error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
     name = get_name(reply_to)
+    if not name:
+        return error_message(message, job_queue, _(Text.INVALID_TARGET))
     with_photo = handle_photo(reply_to)
     handle_say(message.bot, chat, job_queue, reply_to, name, RpgMessage(reply_to), with_photo=with_photo)
     delete_message(reply_to)

@@ -161,7 +161,7 @@ class Text(Enum):
 
 zh_hans: Dict[Text, str] = {
     Text.NOT_FOUND_VARIABLE_TO_DELETE: '找不到 {character} 要删除的变量，请用 <code>.list</code> 检查',
-    Text.INVALID_TARGET: '无效的设置对象，请检查',
+    Text.INVALID_TARGET: '无效的操作对象，请检查',
     Text.INTERNAL_ERROR: '内部错误，请重试',
     Text.MUST_SAME_USER: '必须由发出指令的人操作',
     Text.DELETED: '成功删除',
