@@ -420,11 +420,15 @@ def set_password(_, update, args, job_queue):
 
     _ = partial(get_by_user, user=message.from_user)
 
-    if len(args) != 1:
+    if len(args) > 1:
         text = _(Text.PASSWORD_USAGE)
         return error_message(message, job_queue, text)
     chat = get_chat(message.chat)
-    chat.password = sha256(str(args[0]).encode()).hexdigest()
+    if args:
+        password = str(args[0])
+        chat.password = sha256(password.encode()).hexdigest()
+    else:
+        chat.password = ''
     chat.save()
     message.reply_text(_(Text.PASSWORD_SUCCESS))
 

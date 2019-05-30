@@ -7,3 +7,5 @@ uwsgi
 pypeg2
 faker
 django-redis
+graphene>=2.0
+graphene-django>=2.0

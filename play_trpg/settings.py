@@ -42,8 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+    'graphene_django',
 ]
+
+GRAPHENE = {
+    'SCHEMA': 'archive.schema.schema'  # Where your Graphene schema lives
+}
 
 CACHES = {
     "default": {
