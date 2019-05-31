@@ -188,6 +188,7 @@ def hide_roll_callback(_, update):
     key = query.data
     if not gm:
         query.answer(_(Text.ONLY_GM_CAN_LOOKUP), show_alert=True)
+        return
     hide_roll = HideRoll.get(key)
     if hide_roll:
         text = hide_roll.text
