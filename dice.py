@@ -1,7 +1,9 @@
 import secrets
 import enum
+import typing
 
 from pypeg2 import *
+from archive.entities import Entity, RollResult, Span as EntityText
 
 
 class DiceErrorKind(enum.Enum):
@@ -150,6 +152,17 @@ Expr.grammar = (item, maybe_some(operator, item))
 class Roll(List):
     grammar = maybe_some([Expr, re.compile(r'\S+')])
 
+    def eval_entities(self, env) -> typing.List[Entity]:
+        entities = []
+        for e in self:
+            if isinstance(e, str):
+                entities.append(EntityText(e))
+            else:
+                value, text = e.eval(env)
+                result_value = value
+                entities.append(RollResult(text, result_value))
+        return entities
+
     def eval(self, env):
         expr_count = 0
         result_value = 0
@@ -166,6 +179,15 @@ class Roll(List):
             result_value, text = parse('1d', Dice).eval(env)
             result_text.insert(0, '<code>{}</code>'.format(text))
         return result_value, ' '.join(result_text)
+
+
+def roll_entities(text, default_dice_face) -> typing.List[Entity]:
+    env = Env(face=default_dice_face)
+    try:
+        roll_ast = parse(text, Roll)
+    except SyntaxError:
+        raise RollError(DiceErrorKind.ROLL_SYNTAX_ERROR)
+    return roll_ast.eval_entities(env)
 
 
 def roll(text, default_dice_face):

@@ -3,6 +3,7 @@ from hashlib import sha256
 
 from django.db import models
 from django.core.cache import cache
+from django.contrib.postgres.fields import JSONField
 
 
 class LogKind(Enum):
@@ -60,6 +61,7 @@ class Log(models.Model):
     character_name = models.CharField('Character', max_length=128, blank=True)
     kind = models.IntegerField(choices=choice(LogKind), default=LogKind.NORMAL.value)
     content = models.TextField(default='', blank=True, null=False)
+    entities = JSONField()
     media = models.FileField(upload_to='uploads/%Y/%m/%d/', blank=True)
     gm = models.BooleanField('GM', default=False)
     reply = models.ForeignKey('Log', on_delete=models.SET_NULL, null=True, blank=True)

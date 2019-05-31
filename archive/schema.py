@@ -1,8 +1,8 @@
-import datetime
 import graphene
 
 from graphene import NonNull
 from graphene_django import DjangoObjectType
+from graphene.types.generic import GenericScalar
 
 from . import models
 
@@ -14,6 +14,7 @@ class Log(DjangoObjectType):
         model = models.Log
         exclude_fields = ('user_id', 'log_set', 'deleted')
     kind = Kind()
+    entities = GenericScalar()
 
 
 class Chat(DjangoObjectType):
