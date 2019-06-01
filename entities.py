@@ -117,7 +117,7 @@ class RollResult(Entity):
         self.result = result
 
     def html(self):
-        return '<code>{}</code>'.format(self.value)
+        return ' <code>{}</code> '.format(self.value)
 
     @staticmethod
     def from_object(obj: dict) -> RollResult:
@@ -134,7 +134,7 @@ class LoopResult(Entity):
         counter_6 = self.rolled.count(6)
         counter_all = len(self.rolled)
         rolled_text = ', '.join(map(str, self.rolled))
-        return '<code>({}/{}) [{}]</code>'.format(counter_6, counter_all, rolled_text)
+        return ' <code>({}/{}) [{}]</code> '.format(counter_6, counter_all, rolled_text)
 
     @staticmethod
     def from_object(obj: dict) -> LoopResult:
@@ -199,7 +199,7 @@ def convert_to_entities(content: str) -> List[Entity]:
 
 
 def entities_to_html(entities: List[Entity]) -> str:
-    html = ' '.join(map(lambda e: e.html(), entities))
+    html = ''.join(map(lambda e: e.html(), entities))
     return html.strip()
 
 
