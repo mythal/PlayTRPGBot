@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from game.models import Player
-
 
 class Entity:
     kind = 'none'
@@ -201,9 +199,7 @@ def convert_to_entities(content: str) -> List[Entity]:
 
 
 def entities_to_html(entities: List[Entity]) -> str:
-    html = ''
-    for entity in entities:
-        html += entity.html()
+    html = ' '.join(map(lambda e: e.html(), entities))
     return html.strip()
 
 

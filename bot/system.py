@@ -12,7 +12,7 @@ from telegram import TelegramError
 from telegram.ext import JobQueue
 
 from archive.models import Chat, Log
-from archive.entities import Me, Bold, Character, Span, Entities, Entity
+from entities import Me, Bold, Character, Span, Entities, Entity
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
 from .display import Text, get_by_user
 from .pattern import ME_REGEX, VARIABLE_REGEX

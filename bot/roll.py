@@ -7,7 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import JobQueue
 
 import dice
-from archive.entities import RollResult, Span, CocResult, LoopResult, Entities
+from entities import RollResult, Span, CocResult, LoopResult, Entities
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
 from .system import RpgMessage, get_chat, error_message, delay_delete_messages, delete_message, HideRoll, is_gm

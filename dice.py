@@ -3,7 +3,7 @@ import enum
 import typing
 
 from pypeg2 import *
-from archive.entities import Entity, RollResult, Span as EntityText
+from entities import Entity, RollResult, Span
 
 
 class DiceErrorKind(enum.Enum):
@@ -156,7 +156,7 @@ class Roll(List):
         entities = []
         for e in self:
             if isinstance(e, str):
-                entities.append(EntityText(e))
+                entities.append(Span(e))
             else:
                 value, text = e.eval(env)
                 result_value = value
