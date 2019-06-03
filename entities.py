@@ -4,6 +4,13 @@ import re
 from typing import List, Optional
 
 
+def escape(text: str) -> str:
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    return text
+
+
 class Entity:
     kind = 'none'
     value = None
@@ -50,7 +57,7 @@ class Span(Entity):
         self.value = text
 
     def html(self):
-        return self.value
+        return escape(self.value)
 
     @staticmethod
     def from_object(obj: dict) -> Span:
@@ -66,7 +73,7 @@ class Character(Entity):
         self.full_name = full_name
 
     def html(self):
-        return '<b>{}</b>'.format(self.value)
+        return '<b>{}</b>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> Character:
@@ -88,7 +95,7 @@ class Bold(Entity):
         self.value = text
 
     def html(self):
-        return '<b>{}</b>'.format(self.value)
+        return '<b>{}</b>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> Bold:
@@ -102,7 +109,7 @@ class Code(Entity):
         self.value = text
 
     def html(self):
-        return '<code>{}</code>'.format(self.value)
+        return '<code>{}</code>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> Code:
@@ -117,7 +124,7 @@ class RollResult(Entity):
         self.result = result
 
     def html(self):
-        return ' <code>{}</code> '.format(self.value)
+        return ' <code>{}</code> '.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> RollResult:

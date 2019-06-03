@@ -216,7 +216,7 @@ class RpgMessage:
         return len(self.entities.list) == 0
 
     def html_text(self) -> str:
-        text = Entities(self.entities.list).to_html()
+        text = self.entities.to_html()
         if self.tags:
             tags = ' '.join(['#{}'.format(tag) for tag in self.tags])
             return '{} {}'.format(text, tags)
