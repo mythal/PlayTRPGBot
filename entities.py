@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 from typing import List, Optional
 
@@ -24,7 +22,7 @@ class Entity:
         return ''
 
     @staticmethod
-    def from_object(obj: dict) -> Entity:
+    def from_object(obj: dict) -> 'Entity':
         raise NotImplementedError()
 
     def __repr__(self):
@@ -41,7 +39,7 @@ class Entities:
         return make_entities_object(self.list)
 
     @staticmethod
-    def from_html(html: str) -> Entities:
+    def from_html(html: str) -> 'Entities':
         new = Entities()
         new.list = convert_to_entities(html)
         return new
@@ -60,7 +58,7 @@ class Span(Entity):
         return escape(self.value)
 
     @staticmethod
-    def from_object(obj: dict) -> Span:
+    def from_object(obj: dict) -> 'Span':
         return Span(obj['value'])
 
 
@@ -76,7 +74,7 @@ class Character(Entity):
         return '<b>{}</b>'.format(escape(self.value))
 
     @staticmethod
-    def from_object(obj: dict) -> Character:
+    def from_object(obj: dict) -> 'Character':
         return Character(obj['value'], obj['player_id'], obj['full_name'])
 
 
@@ -84,7 +82,7 @@ class Me(Character):
     kind = 'me'
 
     @staticmethod
-    def from_object(obj: dict) -> Me:
+    def from_object(obj: dict) -> 'Me':
         return Me(obj['value'], obj['player_id'], obj['full_name'])
 
 
@@ -98,7 +96,7 @@ class Bold(Entity):
         return '<b>{}</b>'.format(escape(self.value))
 
     @staticmethod
-    def from_object(obj: dict) -> Bold:
+    def from_object(obj: dict) -> 'Bold':
         return Bold(obj['value'])
 
 
@@ -112,7 +110,7 @@ class Code(Entity):
         return '<code>{}</code>'.format(escape(self.value))
 
     @staticmethod
-    def from_object(obj: dict) -> Code:
+    def from_object(obj: dict) -> 'Code':
         return Code(obj['value'])
 
 
@@ -127,7 +125,7 @@ class RollResult(Entity):
         return ' <code>{}</code> '.format(escape(self.value))
 
     @staticmethod
-    def from_object(obj: dict) -> RollResult:
+    def from_object(obj: dict) -> 'RollResult':
         return RollResult(obj['value'], obj['result'])
 
 
@@ -144,7 +142,7 @@ class LoopResult(Entity):
         return ' <code>({}/{}) [{}]</code> '.format(counter_6, counter_all, rolled_text)
 
     @staticmethod
-    def from_object(obj: dict) -> LoopResult:
+    def from_object(obj: dict) -> 'LoopResult':
         return LoopResult(obj['rolled'])
 
 
@@ -172,7 +170,7 @@ class CocResult(Entity):
         return result
 
     @staticmethod
-    def from_object(obj: dict) -> CocResult:
+    def from_object(obj: dict) -> 'CocResult':
         return CocResult(obj['rolled'], obj['level'], obj['modifier_name'], obj['rolled_list'])
 
 

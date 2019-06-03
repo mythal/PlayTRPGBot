@@ -19,6 +19,12 @@ load_dotenv()
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# try:
+#     import psycopg2
+# except ImportError:
+#     # Fall back to psycopg2cffi
+#     from psycopg2cffi import compat
+#     compat.register()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -44,10 +50,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'graphene_django',
     'corsheaders',
+    'debug_toolbar',
 ]
 
 GRAPHENE = {
-    'SCHEMA': 'archive.schema.schema'  # Where your Graphene schema lives
+    'SCHEMA': 'archive.schema.schema',  # Where your Graphene schema lives
 }
 
 CACHES = {
@@ -75,8 +82,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+INTERNAL_IPS = ['127.0.0.1']
+
 if DEBUG:
     MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
     CORS_ORIGIN_ALLOW_ALL = True
 
 ROOT_URLCONF = 'play_trpg.urls'

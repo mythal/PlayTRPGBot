@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pickle
 import re
 from functools import partial
@@ -46,7 +44,7 @@ def is_gm(chat_id: int, user_id: int) -> bool:
     return player.is_gm
 
 
-def get_chat(telegram_chat: telegram.Chat) -> Chat:
+def get_chat(telegram_chat: telegram.Chat) -> 'Chat':
     chat = Chat.objects.filter(
         chat_id=telegram_chat.id
     ).first()
@@ -249,7 +247,7 @@ class HideRoll:
         return self.REMOVE_TAG.sub('', self._text)
 
     @staticmethod
-    def get(key) -> Optional[HideRoll]:
+    def get(key) -> Optional['HideRoll']:
         payload = redis.get(key)
         if not payload:
             return None
@@ -270,7 +268,7 @@ class Deletion:
         return 'delete:{}:{}'.format(chat_id, message_id)
 
     @staticmethod
-    def get(chat_id, message_id) -> Optional[Deletion]:
+    def get(chat_id, message_id) -> Optional['Deletion']:
         payload = redis.get(Deletion.key(chat_id, message_id))
         if not payload:
             return None
