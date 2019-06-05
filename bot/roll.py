@@ -52,14 +52,23 @@ def handle_coc_roll(
     text = text.strip()
     numbers = re.findall(r'\d{1,2}', text)
 
-    if len(numbers) == 0:
-        return error_message(message, job_queue, _(Text.COC_NEED_SKILL_VALUE))
-
     # have not modifier
     rolled_list = [roll()]
     rolled = rolled_list[0]
     modifier_name = None
     skill_number = int(numbers[0])
+
+    # have not target value
+    if len(numbers) == 0:
+        handle_roll(
+            message,
+            name,
+            Entities([Span(text), RollResult(str(rolled), rolled)]),
+            job_queue,
+            chat,
+            hide,
+        )
+        return
 
     # have modifier
     modifier_matched = re.search('[-+]', command)
