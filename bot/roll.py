@@ -56,7 +56,6 @@ def handle_coc_roll(
     rolled_list = [roll()]
     rolled = rolled_list[0]
     modifier_name = None
-    skill_number = int(numbers[0])
 
     # have not target value
     if len(numbers) == 0:
@@ -70,6 +69,7 @@ def handle_coc_roll(
         )
         return
 
+    skill_number = int(numbers[0])
     # have modifier
     modifier_matched = re.search('[-+]', command)
     if modifier_matched:
