@@ -48,7 +48,7 @@ def handle_coc_roll(
     def roll() -> int:
         return secrets.randbelow(100) + 1
 
-    hide = command[-1] == 'd'
+    hide = command[-1] == 'h'
     text = text.strip()
     numbers = re.findall(r'\d{1,2}', text)
 
