@@ -64,7 +64,6 @@ class Chat(DjangoObjectType):
                 tag: Optional[models.Tag] = models.Tag.objects.filter(id=int(tag_id), chat=chat).first()
                 if tag:
                     query_set = tag.log_set.all()
-            query_set = query_set.select_related('reply').prefetch_related('tag')
             log_counter = query_set.count()
             log_list = LogList(
                 tag_name=tag_name,

@@ -33,7 +33,7 @@ class Chat(models.Model):
     default_dice_face = models.IntegerField(default=20)
 
     def all_log(self):
-        return self.log_set.filter(deleted=False).order_by('created')
+        return self.log_set.filter(deleted=False).order_by('created').prefetch_related('reply', 'tag')
 
     def log_count(self):
         key = 'chat:counter:{}'.format(self.chat_id)

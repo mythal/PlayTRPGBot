@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 {% load staticfiles %}
+{% load cache %}
 {% block title %}{{ chat.title }} - PlayTRPG{% endblock %}
 {% block header %}
     <h1>{{ chat.title }}</h1>
     <a href="/">⇐ Home</a>
 {% endblock %}
 {% block main %}
-
+{% cache 500 chat chat.id %}
     <article id="log-list">
         {% if chat.description %}
             <section class="description">
@@ -68,4 +69,5 @@
         </table>
 </article>
     <script src="{% static 'chat.js' %}"></script>
+{% endcache %}
 {% endblock %}
