@@ -14,7 +14,7 @@ ME_REGEX = re.compile(r'[.。]me\b')
 USERNAME_REGEX = re.compile(r'@([a-zA-Z0-9_]{5,})')
 
 # ..(space)..[name];..(space)..
-AS_REGEX = re.compile(r'^\.as\s*([^;；]+)[;；]\s*')
+AS_REGEX = re.compile(r'^[.。]as\s*([^;；]+)[;；]\s*')
 
 VARIABLE_REGEX = re.compile(r'[$¥]([\w_0-9]{1,32})')
 
