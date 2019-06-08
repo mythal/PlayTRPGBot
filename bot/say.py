@@ -36,12 +36,12 @@ def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
         if name.strip() == '':
             return error_message(message, job_queue, _(Text.EMPTY_NAME))
         set_temp_name(chat.chat_id, user_id, name)
-        rpg_message = RpgMessage(message, match.end())
+        rpg_message = RpgMessage(message, match.end(), temp_name=name)
     else:
         name = get_temp_name(chat.chat_id, user_id) or ''
         if name == '':
             return error_message(message, job_queue, _(Text.AS_SYNTAX_ERROR))
-        rpg_message = RpgMessage(message, start)
+        rpg_message = RpgMessage(message, start, temp_name=name)
 
     handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
 

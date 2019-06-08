@@ -108,13 +108,13 @@ class RpgMessage:
     segments: List[Entity]
     entities: Entities
 
-    def __init__(self, message: telegram.Message, start=0):
+    def __init__(self, message: telegram.Message, start=0, temp_name=None):
         self.entities = Entities()
         self.start = start
         self.players = list(Player.objects.filter(chat_id=message.chat_id).all())
         for player in self.players:
             if player.user_id == message.from_user.id:
-                self.me = Me(player.character_name, player.id, player.full_name)
+                self.me = Me(temp_name or player.character_name, player.id, player.full_name)
                 self.variables = {}
                 for variable in player.variable_set.all():
                     self.variables[variable.name.upper()] = variable.value
