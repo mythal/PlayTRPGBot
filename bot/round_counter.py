@@ -53,13 +53,15 @@ def round_inline_handle(bot: telegram.Bot, query: telegram.CallbackQuery, gm: bo
     elif method == 'round:finish':
         if not gm:
             raise NotGm()
-        query.edit_message_text(Text.ROUND_ALREADY_FINISHED)
+        query.edit_message_text(_(Text.ROUND_ALREADY_FINISHED))
         remove_round(bot, game_round.chat_id)
 
 
 def round_inline_callback(bot: telegram.Bot, query: telegram.CallbackQuery, gm: bool):
     game_round = Round.objects.filter(chat_id=query.message.chat_id).first()
-    _ = partial(get_by_user, user=query.from_user)
+
+    def _(t: Text):
+        get_by_user(t, query.from_user)
     if not isinstance(game_round, Round):
         query.answer(show_alert=True, text=_(Text.GAME_NOT_IN_ROUND))
         return
