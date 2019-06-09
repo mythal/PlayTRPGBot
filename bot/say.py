@@ -114,6 +114,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             tag = get_tag(chat, tag_name)
             edit_log.tag.add(tag)
         edit_log.content = text
+        edit_log.entities = rpg_message.entities.to_object()
         edit_log.kind = kind
         edit_log.save()
         return
