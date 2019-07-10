@@ -50,10 +50,12 @@ GRAPHENE = {
     'SCHEMA': 'archive.schema.schema',  # Where your Graphene schema lives
 }
 
+REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis:6379/1",
+        "LOCATION": "redis://{}:6379/1".format(REDIS_HOST),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "PICKLE_VERSION": -1,  # Use the latest protocol version
@@ -118,7 +120,7 @@ DATABASES = {
         'NAME': os.environ['POSTGRES_DB'],
         'USER': os.environ['POSTGRES_USER'],
         'PASSWORD': os.environ['POSTGRES_PASSWORD'],
-        'HOST': 'db',
+        'HOST': os.environ.get('POSTGRES_HOST', 'db'),
         'PORT': '5432',
         'client_encoding': 'UTF8',
     }
