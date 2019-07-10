@@ -310,6 +310,8 @@ def handle_message(bot, update, job_queue):
         text = message.caption
     if not text or not text.startswith(('.', '。')):
         return
+    if text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
+        return
     if not is_group_chat(message.chat):
         message.reply_text(_(Text.NOT_GROUP))
         return
