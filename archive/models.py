@@ -32,6 +32,8 @@ class Chat(models.Model):
     recording = models.BooleanField(default=True)
     password = models.CharField(max_length=512, default='')
     default_dice_face = models.IntegerField(default=20)
+    gm_mode = models.BooleanField(default=False)
+    gm_mode_notice = models.BigIntegerField(null=True, default=None)
 
     def all_log(self):
         return self.log_set.filter(deleted=False).order_by('created').prefetch_related('reply', 'tag')

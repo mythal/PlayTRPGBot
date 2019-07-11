@@ -157,9 +157,17 @@ class Text(Enum):
     CANCELED = auto()
     NOT_FOUND_VARIABLE_TO_DELETE = auto()
     INVALID_TARGET = auto()
+    START_GM_MODE = auto()
+    ALREADY_IN_GM_MODE = auto()
+    NOT_IN_GM_MODE = auto()
+    FINISH_GM_MODE = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.START_GM_MODE: '==== <b>GM Only</b> ====',
+    Text.FINISH_GM_MODE: '==== ¶ 请继续发言 ====',
+    Text.NOT_IN_GM_MODE: '当前并没有在 GM 模式',
+    Text.ALREADY_IN_GM_MODE: '已经在 GM 模式中了，要关闭请用 <code>]</code>',
     Text.NOT_FOUND_VARIABLE_TO_DELETE: '找不到 {character} 要删除的变量，请用 <code>.list</code> 检查',
     Text.INVALID_TARGET: '无效的操作对象，请检查',
     Text.INTERNAL_ERROR: '内部错误，请重试',
@@ -255,6 +263,10 @@ zh_hans: Dict[Text, str] = {
 
 
 zh_hant: Dict[Text, str] = {
+    Text.START_GM_MODE: '〖<b>GM Only</b>',
+    Text.FINISH_GM_MODE: '¶ 請繼續發言〗',
+    Text.NOT_IN_GM_MODE: '當前並沒有在 GM 模式',
+    Text.ALREADY_IN_GM_MODE: '已經在 GM 模式中了，要關閉請用 <code>]</code>',
     Text.NOT_FOUND_VARIABLE_TO_DELETE: '找不到 {character} 要刪除的變量，請用 <code>.list</code> 檢查',
     Text.INVALID_TARGET: '無效的設置對象，請檢查',
     Text.INTERNAL_ERROR: '內部錯誤，請重試',

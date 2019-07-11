@@ -7,7 +7,7 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, JobQueue
 from telegram.ext.dispatcher import run_async
 
 from bot.say import handle_as_say, handle_say, get_tag
@@ -294,21 +294,49 @@ def run_chat_job(_bot, update: telegram.Update):
 
 
 message_handlers = [
-    (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
-    (re.compile(r'^[.。](hd)\b'), handle_normal_roll),
-    (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
-    (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
-    (re.compile(r'^[.。](init)\b'), handle_initiative),
-    (re.compile(r'^[.。](set)\b'), handle_variable_assign),
-    (re.compile(r'^[.。](list)\b'), handle_list_variables),
-    (re.compile(r'^[.。](clear)\b'), handle_clear_variables),
-    (re.compile(r'^[.。](as)\b'), handle_as_say),
-    (re.compile(r'^[.。](del)\b'), handle_delete),
+    (re.compile(r'^[.。[【](rh?)\b'), handle_normal_roll),
+    (re.compile(r'^[.。[【](hd)\b'), handle_normal_roll),
+    (re.compile(r'^[.。[【](loh?)\b'), handle_loop_roll),
+    (re.compile(r'^[.。[【](coch?[+\-]?h?)\s*'), handle_coc_roll),
+    (re.compile(r'^[.。[【](init)\b'), handle_initiative),
+    (re.compile(r'^[.。[【](set)\b'), handle_variable_assign),
+    (re.compile(r'^[.。[【](list)\b'), handle_list_variables),
+    (re.compile(r'^[.。[【](clear)\b'), handle_clear_variables),
+    (re.compile(r'^[.。[【](as)\b'), handle_as_say),
+    (re.compile(r'^[.。[【](del)\b'), handle_delete),
 ]
 
 
+def start_gm_mode(bot: telegram.Bot, message: telegram.Message, chat: Chat):
+    _ = partial(get_by_user, user=message.from_user)
+    if chat.gm_mode:
+        return
+    chat.gm_mode = True
+    chat.save()
+    sent = bot.send_message(chat.chat_id, _(Text.START_GM_MODE), parse_mode='HTML')
+    chat.gm_mode_notice = sent.message_id
+    chat.save()
+
+
+def finish_gm_mode(bot: telegram.Bot, message: telegram.Message, job_queue: JobQueue, chat: Chat):
+    _ = partial(get_by_user, user=message.from_user)
+    if not chat.gm_mode:
+        error_message(message, job_queue, _(Text.NOT_IN_GM_MODE))
+        return
+
+    if chat.gm_mode_notice:
+        delay_delete_message(job_queue, chat.chat_id, chat.gm_mode_notice, 20)
+    chat.gm_mode = False
+    chat.gm_mode_notice = None
+    chat.save()
+
+    sent = bot.send_message(chat.chat_id, _(Text.FINISH_GM_MODE), parse_mode='HTML')
+    delay_delete_message(job_queue, chat.chat_id, sent.message_id, 20)
+    delete_message(message)
+
+
 @run_async
-def handle_message(bot, update: telegram.Update, job_queue):
+def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     message: telegram.Message = update.message
     if update.edited_message:
         message = update.edited_message
@@ -325,8 +353,7 @@ def handle_message(bot, update: telegram.Update, job_queue):
     text = message.text
     if with_photo:
         text = message.caption
-    if not text or not text.startswith(('.', '。')):
-        return
+
     # ignore ... or 。。
     if text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
         return
@@ -338,6 +365,22 @@ def handle_message(bot, update: telegram.Update, job_queue):
 
     chat = get_chat(message.chat)
     player = get_player_by_id(message.chat_id, message.from_user.id)
+
+    if not text:
+        return
+    if player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
+        if text.startswith(('[', '【')):
+            start_gm_mode(bot, message, chat)
+            if len(text) == 1:
+                delete_message(message)
+                return
+        elif text in (']', '】'):
+            finish_gm_mode(bot, message, job_queue, chat)
+            return
+    elif not text or not text.startswith(('.', '。')):
+        return
+    if chat.gm_mode and not player.is_gm:
+        return
     if not player:
         error_message(message, job_queue, _(Text.NOT_SET_NAME))
         return
