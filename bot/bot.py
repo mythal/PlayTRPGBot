@@ -7,7 +7,7 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, JobQueue
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 from telegram.ext.dispatcher import run_async
 
 from bot.say import handle_as_say, handle_say, get_tag
@@ -21,7 +21,7 @@ from . import pattern
 from . import const
 from .display import Text, get_by_user, get
 from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message,\
-    get_player_by_id, delay_delete_message, handle_edit_message, cancel_delete_message
+    get_player_by_id, delay_delete_message, handle_edit_message, cancel_delete_message, send_message
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -31,24 +31,24 @@ logging.basicConfig(format=const.LOGGER_FORMAT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def start_command(_, update, job_queue):
+def start_command(_, update):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
     if not is_group_chat(message.chat):
-        message.reply_text(_(Text.START_TEXT), parse_mode='HTML')
+        send_message(message.chat_id, _(Text.START_TEXT), reply_to=message.message_id)
         return
     chat = get_chat(message.chat)
     if not chat.recording:
         chat.recording = True
         chat.save()
-        message.chat.send_message('#start {}'.format(_(Text.START_RECORDING)))
+        send_message(message.chat_id, '#start {}'.format(_(Text.START_RECORDING)))
     else:
-        error_message(message, job_queue, _(Text.ALREADY_STARTED))
+        error_message(message, _(Text.ALREADY_STARTED))
 
 
-def save(_, update, job_queue):
+def save(_, update):
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
@@ -61,7 +61,7 @@ def save(_, update, job_queue):
         chat.save()
         message.chat.send_message('#save {}'.format(_(Text.SAVE)))
     else:
-        error_message(message, job_queue, _(Text.ALREADY_SAVED))
+        error_message(message, _(Text.ALREADY_SAVED))
 
 
 def bot_help(_, update):
@@ -70,7 +70,7 @@ def bot_help(_, update):
     update.message.reply_text(send_text, parse_mode='HTML')
 
 
-def handle_delete_callback(bot: telegram.Bot, query: telegram.CallbackQuery):
+def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
     def _(t: Text):
         return get_by_user(t, user=query.from_user)
     message = query.message
@@ -87,7 +87,7 @@ def handle_delete_callback(bot: telegram.Bot, query: telegram.CallbackQuery):
     if query.data == 'delete:cancel':
         query.answer(_(Text.CANCELED))
     elif query.data == 'delete:confirm':
-        deletion.do(bot)
+        deletion.do()
         query.answer(_(Text.DELETED))
 
 
@@ -120,7 +120,6 @@ def handle_delete(
         bot: telegram.Bot,
         chat: Chat,
         message: telegram.Message,
-        job_queue: telegram.ext.JobQueue,
         player: Player,
         **_):
     target = message.reply_to_message
@@ -131,16 +130,16 @@ def handle_delete(
         target_player: Player = player
         if isinstance(target, telegram.Message):
             if not player.is_gm:
-                return error_message(message, job_queue, _(Text.NOT_GM))
+                return error_message(message, _(Text.NOT_GM))
             if bot.id == target.from_user.id:
                 log = Log.objects.filter(chat=chat, message_id=target.message_id, deleted=False).first()
                 if not log:
-                    return error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+                    return error_message(message, _(Text.RECORD_NOT_FOUND))
                 target_player = get_player_by_id(chat.chat_id, log.user_id)
             else:
                 target_player = get_player_by_id(message.chat_id, target.from_user.id)
         if not target_player:
-            return error_message(message, job_queue, _(Text.INVALID_TARGET))
+            return error_message(message, _(Text.INVALID_TARGET))
         delete_log = ''
         variable_id_list = []
         for variable_name in variables:
@@ -153,7 +152,7 @@ def handle_delete(
                 delete_log += '${}'.format(variable.name)
             variable_id_list.append(variable.id)
         if not variable_id_list:
-            return error_message(message, job_queue, _(Text.NOT_FOUND_VARIABLE_TO_DELETE))
+            return error_message(message, _(Text.NOT_FOUND_VARIABLE_TO_DELETE))
         delete_message(message)
         check_text = _(Text.CHECK_DELETE_VARIABLE).format(character=target_player.character_name)
         check_text += '\n<pre>{}</pre>'.format(delete_log)
@@ -164,38 +163,38 @@ def handle_delete(
         user_id = message.from_user.id
         log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
         if log is None:
-            error_message(message, job_queue, get_by_user(Text.RECORD_NOT_FOUND, message.from_user))
+            error_message(message, get_by_user(Text.RECORD_NOT_FOUND, message.from_user))
             return
         elif log.user_id != user_id and not is_gm(message.chat_id, user_id):
-            error_message(message, job_queue, get_by_user(Text.HAVE_NOT_PERMISSION, message.from_user))
+            error_message(message, get_by_user(Text.HAVE_NOT_PERMISSION, message.from_user))
             return
         check_text = _(Text.DELETE_CHECK) + '\n\n{}'.format(target.caption_html or target.text_html)
         reply_markup = delete_reply_markup(message.from_user.language_code)
         deletion = Deletion(message.chat_id, message.from_user.id, message_list=[target.message_id])
     else:
-        error_message(message, job_queue, get_by_user(Text.DELETE_USAGE, message.from_user))
+        error_message(message, get_by_user(Text.DELETE_USAGE, message.from_user))
         return
     delete_message(message)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
     deletion.set(sent.message_id)
-    delay_delete_message(job_queue, message.chat_id, sent.message_id, 30)
+    delay_delete_message(message.chat_id, sent.message_id, 30)
 
 
-def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message):
+def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
     target = message.reply_to_message
 
     _ = partial(get_by_user, user=message.from_user)
     if not isinstance(target, telegram.Message):
-        return error_message(message, job_queue, _(Text.NEED_REPLY))
+        return error_message(message, _(Text.NEED_REPLY))
 
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
     if log is None:
-        error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+        error_message(message, _(Text.RECORD_NOT_FOUND))
         return
     elif log.user_id != user_id:
-        error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
+        error_message(message, _(Text.HAVE_NOT_PERMISSION))
         return
 
     assert isinstance(log, Log)
@@ -214,7 +213,7 @@ def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message
                 if tag not in log.tag.all():
                     tag_list.append(tag)
     if not tag_list:
-        return error_message(message, job_queue, _(Text.NOT_TAG))
+        return error_message(message, _(Text.NOT_TAG))
 
     tag_text = ''.join([' #{}'.format(tag.name) for tag in tag_list])
 
@@ -237,53 +236,44 @@ def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message
     delete_message(message)
 
 
-def handle_edit(bot, chat, job_queue, message: telegram.Message, start: int, with_photo=None):
+def handle_edit(chat, message: telegram.Message, start: int, with_photo=None):
     target = message.reply_to_message
 
     _ = partial(get_by_user, user=message.from_user)
     if not isinstance(target, telegram.Message):
-        return error_message(message, job_queue, _(Text.NEED_REPLY))
+        return error_message(message, _(Text.NEED_REPLY))
 
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
     if log is None:
-        error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+        error_message(message, _(Text.RECORD_NOT_FOUND))
     elif log.user_id == user_id:
         rpg_message = RpgMessage(message, start)
-        handle_say(bot, chat, job_queue, message, log.character_name, rpg_message, edit_log=log, with_photo=with_photo)
+        handle_say(chat, message, log.character_name, rpg_message, edit_log=log, with_photo=with_photo)
         delete_message(message)
     else:
-        error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
+        error_message(message, _(Text.HAVE_NOT_PERMISSION))
 
 
-def handle_lift(message: telegram.Message, job_queue, chat: Chat):
+def handle_lift(message: telegram.Message, chat: Chat):
     assert isinstance(message, telegram.Message)
     reply_to = message.reply_to_message
     user_id = message.from_user.id
     _ = partial(get_by_user, user=message.from_user)
     if not isinstance(reply_to, telegram.Message):
-        return error_message(message, job_queue, _(Text.NEED_REPLY))
+        return error_message(message, _(Text.NEED_REPLY))
     elif reply_to.from_user.id == message.bot.id:
-        return error_message(message, job_queue, _(Text.NEED_REPLY_PLAYER_RECORD))
+        return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
     elif reply_to.from_user.id != user_id and not is_gm(message.chat_id, user_id):
-        return error_message(message, job_queue, _(Text.HAVE_NOT_PERMISSION))
+        return error_message(message, _(Text.HAVE_NOT_PERMISSION))
     name = get_name(reply_to)
     if not name:
-        return error_message(message, job_queue, _(Text.INVALID_TARGET))
+        return error_message(message, _(Text.INVALID_TARGET))
     with_photo = handle_photo(reply_to)
-    handle_say(message.bot, chat, job_queue, reply_to, name, RpgMessage(reply_to), with_photo=with_photo)
+    handle_say(chat, reply_to, name, RpgMessage(reply_to), with_photo=with_photo)
     delete_message(reply_to)
     delete_message(message)
-
-
-def update_player(chat_id, user: telegram.User):
-    player = Player.objects.filter(chat_id=chat_id, user_id=user.id).first()
-    if not player:
-        return
-    player.username = user.username or ''
-    player.full_name = user.full_name
-    player.save()
 
 
 @run_async
@@ -318,20 +308,19 @@ def start_gm_mode(bot: telegram.Bot, message: telegram.Message, chat: Chat):
     chat.save()
 
 
-def finish_gm_mode(bot: telegram.Bot, message: telegram.Message, job_queue: JobQueue, chat: Chat):
+def finish_gm_mode(message: telegram.Message, chat: Chat):
     _ = partial(get_by_user, user=message.from_user)
     if not chat.gm_mode:
-        error_message(message, job_queue, _(Text.NOT_IN_GM_MODE))
+        error_message(message, _(Text.NOT_IN_GM_MODE))
         return
 
     if chat.gm_mode_notice:
-        delay_delete_message(job_queue, chat.chat_id, chat.gm_mode_notice, 20)
+        delay_delete_message(chat.chat_id, chat.gm_mode_notice, 20)
     chat.gm_mode = False
     chat.gm_mode_notice = None
     chat.save()
 
-    sent = bot.send_message(chat.chat_id, _(Text.FINISH_GM_MODE), parse_mode='HTML')
-    delay_delete_message(job_queue, chat.chat_id, sent.message_id, 20)
+    send_message(chat.chat_id, _(Text.FINISH_GM_MODE), delete_after=20)
     delete_message(message)
 
 
@@ -341,7 +330,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     if update.edited_message:
         message = update.edited_message
         edit_log = Log.objects.filter(chat__chat_id=message.chat_id, source_message_id=message.message_id).first()
-        cancel_delete_message(job_queue, message.chat_id, message. message_id)
+        cancel_delete_message(message.chat_id, message. message_id)
     elif isinstance(message, telegram.Message):
         edit_log = None
     else:
@@ -368,6 +357,9 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
 
     if not text:
         return
+    if not player:
+        error_message(message, _(Text.NOT_SET_NAME))
+        return
     if player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
         if text.startswith(('[', '【')):
             start_gm_mode(bot, message, chat)
@@ -375,14 +367,11 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
                 delete_message(message)
                 return
         elif text in (']', '】'):
-            finish_gm_mode(bot, message, job_queue, chat)
+            finish_gm_mode(message, chat)
             return
     elif not text or not text.startswith(('.', '。')):
         return
     if chat.gm_mode and not player.is_gm:
-        return
-    if not player:
-        error_message(message, job_queue, _(Text.NOT_SET_NAME))
         return
     name = player.character_name
 
@@ -392,8 +381,8 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
             continue
         command, start = result
         rest = text[start:]
-        if handler is not handle_as_say:
-            handle_edit_message(bot, edit_log)
+        if handler is not handle_as_say and edit_log:
+            handle_edit_message.delay(edit_log.id)
 
         handler(
             bot=bot,
@@ -415,21 +404,20 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
         command = edit_command_matched.group(1).lower()
         reply_to = message.reply_to_message
         if not chat.recording:
-            error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+            error_message(message, _(Text.RECORD_NOT_FOUND))
         elif not isinstance(reply_to, telegram.Message):
-            error_message(message, job_queue, _(Text.NEED_REPLY))
+            error_message(message, _(Text.NEED_REPLY))
         elif command == 'lift':
-            handle_lift(message, job_queue, chat)
+            handle_lift(message, chat)
         elif reply_to.from_user.id != bot.id:
-            error_message(message, job_queue, _(Text.NEED_REPLY_PLAYER_RECORD))
+            error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
         elif command == 'edit':
-            handle_edit(bot, chat, job_queue, message, start=edit_command_matched.end(),
-                        with_photo=with_photo)
+            handle_edit(chat, message, start=edit_command_matched.end(), with_photo=with_photo)
         elif command == 'tag':
-            handle_add_tag(bot, chat, job_queue, message)
+            handle_add_tag(bot, chat, message)
     else:
         rpg_message = RpgMessage(message, start=1)
-        handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo, edit_log=edit_log)
+        handle_say(chat, message, name, rpg_message, edit_log=edit_log, with_photo=with_photo)
 
 
 def handle_photo(message: telegram.Message):
@@ -468,7 +456,7 @@ def handle_status(bot: telegram.Bot, update):
                 )
 
 
-def set_password(_, update, args, job_queue):
+def set_password(_, update, args):
     message = update.message
     assert isinstance(message, telegram.Message)
 
@@ -476,7 +464,7 @@ def set_password(_, update, args, job_queue):
 
     if len(args) > 1:
         text = _(Text.PASSWORD_USAGE)
-        return error_message(message, job_queue, text)
+        return error_message(message, text)
     chat = get_chat(message.chat)
     if args:
         password = str(args[0])
@@ -496,16 +484,16 @@ def run_bot():
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start_command, pass_job_queue=True))
-    dp.add_handler(CommandHandler("save", save, pass_job_queue=True))
+    dp.add_handler(CommandHandler("start", start_command))
+    dp.add_handler(CommandHandler("save", save))
     dp.add_handler(CommandHandler("help", bot_help))
-    dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True, pass_job_queue=True))
-    dp.add_handler(CommandHandler('name', set_name, pass_args=True, pass_job_queue=True))
-    dp.add_handler(CommandHandler('round', start_round, pass_job_queue=True))
-    dp.add_handler(CommandHandler('public', public_round, pass_job_queue=True))
-    dp.add_handler(CommandHandler('hide', hide_round, pass_job_queue=True))
-    dp.add_handler(CommandHandler('next', next_turn, pass_job_queue=True))
-    dp.add_handler(CommandHandler('password', set_password, pass_args=True, pass_job_queue=True))
+    dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True))
+    dp.add_handler(CommandHandler('name', set_name, pass_args=True))
+    dp.add_handler(CommandHandler('round', start_round))
+    dp.add_handler(CommandHandler('public', public_round))
+    dp.add_handler(CommandHandler('hide', hide_round))
+    dp.add_handler(CommandHandler('next', next_turn))
+    dp.add_handler(CommandHandler('password', set_password, pass_args=True))
     dp.add_handler(MessageHandler(
         Filters.text | Filters.photo | Filters.command,
         handle_message,
@@ -514,16 +502,6 @@ def run_bot():
         edited_updates=True,
     ))
     dp.add_handler(MessageHandler(Filters.status_update, handle_status))
-    # always execute `run_chat_job`.
-    dp.add_handler(
-        MessageHandler(
-            Filters.all,
-            run_chat_job,
-            channel_post_updates=False,
-        ),
-        group=42
-    )
-
     updater.dispatcher.add_handler(CallbackQueryHandler(inline_callback))
     # log all errors
     dp.add_error_handler(handle_error)

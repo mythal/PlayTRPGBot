@@ -3,27 +3,25 @@ from typing import List
 
 import telegram
 
-from telegram.ext import JobQueue
-
 from . import pattern
 from .display import get, Text, get_by_user
 from .system import error_message, delete_message, get_player_by_username,\
-    get_player_by_id, delay_delete_message
+    get_player_by_id, delay_delete_message, send_message
 from game.models import Player, Variable
 from archive.models import Log
 
 
-def handle_clear_variables(message: telegram.Message, player: Player, job_queue, **_):
+def handle_clear_variables(message: telegram.Message, player: Player, **_):
     _ = partial(get_by_user, user=message.from_user)
     player.variable_set.all().delete()
     send_text = _(Text.VARIABLE_CLEARED).format(character=player.character_name)
-    sent = message.chat.send_message(send_text, parse_mode='HTML')
+    send_message(message.chat_id, send_text)
     delete_message(message)
     delete_time = 20
-    delay_delete_message(job_queue, message.chat_id, sent.message_id, delete_time)
+    delay_delete_message(message.chat_id, sent.message_id, delete_time)
 
 
-def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: str, player: Player, **_):
+def handle_list_variables(message: telegram.Message, name: str, player: Player, **_):
     _ = partial(get_by_user, user=message.from_user)
     content = ''
     have_variable = False
@@ -34,10 +32,8 @@ def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: 
         content = _(Text.VARIABLE_LIST_EMPTY)
 
     send_text = '<b>{}</b>\n\n{}'.format(_(Text.VARIABLE_LIST_TITLE).format(character=name), content)
-    list_message = message.chat.send_message(send_text, parse_mode='HTML')
+    send_message(message.chat_id, send_text, delete_after=30)
     delete_message(message)
-    delete_time = 30
-    delay_delete_message(job_queue, message.chat_id, list_message.message_id, delete_time)
 
 
 class IgnoreLine:
@@ -71,17 +67,12 @@ class Assignment:
             return _(Text.VARIABLE_UPDATED).format(**format_dict)
 
 
-def variable_message(message: telegram.Message, job_queue: JobQueue,
-                     assignment_list: List[Assignment]):
+def variable_message(message: telegram.Message, assignment_list: List[Assignment]):
     send_text = ''
     for assignment in assignment_list:
         send_text += assignment.display(message.from_user.language_code) + '\n'
-    sent = message.chat.send_message(send_text, parse_mode='HTML')
-    user = message.from_user
-    assert isinstance(user, telegram.User)
-
-    delay_delete_message(job_queue, message.chat_id, sent.message_id, 40)
-    delay_delete_message(job_queue, message.chat_id, message.message_id, 25)
+    send_message(message.chat_id, send_text, delete_after=40)
+    delay_delete_message(message.chat_id, message.message_id, 25)
 
 
 def value_processing(text: str) -> str:
@@ -89,7 +80,7 @@ def value_processing(text: str) -> str:
     return text.strip()
 
 
-def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_queue, start: int,
+def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, start: int,
                            player: Player, **_):
     _ = partial(get_by_user, user=message.from_user)
     is_gm = player.is_gm
@@ -111,7 +102,7 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
                 start = end
             else:
                 error_text = '{}\n\n{}'.format(_(Text.VARIABLE_ASSIGN_USAGE), _(Text.VARIABLE_ASSIGN_GM_USAGE))
-                error_message(message, job_queue, error_text)
+                error_message(message, error_text)
                 return
 
     if not assign_player_list:
@@ -124,13 +115,13 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
             if user_id == bot.id:
                 log = Log.objects.filter(message_id=reply_to.message_id, chat__chat_id=message.chat_id).first()
                 if not log:
-                    error_message(message, job_queue, _(Text.RECORD_NOT_FOUND))
+                    error_message(message, _(Text.RECORD_NOT_FOUND))
                     return
                 user_id = log.user_id
         if user_id != player.user_id:
             player = get_player_by_id(message.chat_id, user_id)
             if not player:
-                return error_message(message, job_queue, _(Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT))
+                return error_message(message, _(Text.REPLY_TO_NON_PLAYER_IN_VARIABLE_ASSIGNMENT))
         assign_player_list.append(player)
     text = text[start:]
     assert isinstance(text, str)
@@ -179,5 +170,5 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, job_que
                 assignment_list.append(Assignment(assign_player, variable, old_value))
 
     if len(assignment_list) == 0:
-        return error_message(message, job_queue, _(Text.VARIABLE_ASSIGN_USAGE))
-    variable_message(message, job_queue, assignment_list)
+        return error_message(message, _(Text.VARIABLE_ASSIGN_USAGE))
+    variable_message(message, assignment_list)

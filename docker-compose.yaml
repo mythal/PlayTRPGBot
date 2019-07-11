@@ -44,10 +44,23 @@ services:
     depends_on:
       - db
       - redis
+      - celery
     env_file:
       - .env
     volumes:
       - .:/code
+  celery:
+    build: .
+    image: quanbrew/play_trpg_bot
+    command: celery -A bot worker --loglevel=info
+    restart: always
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/code
+    env_file:
+      - .env
   touzi:
     build: .
     image: quanbrew/play_trpg_bot

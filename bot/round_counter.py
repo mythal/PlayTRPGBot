@@ -5,7 +5,7 @@ import telegram
 from django.db import transaction
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, TelegramError
 
-from .system import NotGm, is_group_chat, error_message, is_gm, delete_message
+from .system import NotGm, is_group_chat, error_message, is_gm, delete_message, delete_message_task
 from .pattern import INITIATIVE_REGEX
 from game.models import Round, Player, Actor
 from .display import Text, get_by_user
@@ -54,7 +54,7 @@ def round_inline_handle(bot: telegram.Bot, query: telegram.CallbackQuery, gm: bo
         if not gm:
             raise NotGm()
         query.edit_message_text(_(Text.ROUND_ALREADY_FINISHED))
-        remove_round(bot, game_round.chat_id)
+        remove_round(game_round.chat_id)
 
 
 def round_inline_callback(bot: telegram.Bot, query: telegram.CallbackQuery, gm: bool):
@@ -72,12 +72,12 @@ def round_inline_callback(bot: telegram.Bot, query: telegram.CallbackQuery, gm: 
         query.answer(show_alert=True, text=_(Text.NOT_GM), cache_time=0)
 
 
-def remove_round(bot: telegram.Bot, chat_id):
+def remove_round(chat_id):
     for game_round in Round.objects.filter(chat_id=chat_id).all():
         message_id = game_round.message_id
         game_round.delete()
         try:
-            bot.delete_message(chat_id, message_id)
+            delete_message_task.delay(chat_id, message_id)
         except TelegramError:
             continue
 
@@ -133,36 +133,36 @@ def refresh_round_message(bot: telegram.Bot, game_round: Round, get_text, refres
         game_round.save()
 
 
-def start_round(bot: telegram.Bot, update: telegram.Update, job_queue):
+def start_round(_bot: telegram.Bot, update: telegram.Update):
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
     if not is_group_chat(message.chat):
-        return error_message(message, job_queue, _(Text.NOT_GROUP))
+        return error_message(message, _(Text.NOT_GROUP))
     chat = message.chat
     text = '{} #round\n\n\n{}'.format(_(Text.ROUND_INDICATOR), _(Text.ROUND_INDICATOR_INIT))
     message = chat.send_message(text, parse_mode='HTML')
     message_id = message.message_id
     chat_id = message.chat_id
-    remove_round(bot, chat_id)
+    remove_round(chat_id)
     Round.objects.create(chat_id=chat_id, message_id=message_id, hide=False)
 
 
-def get_round(update: telegram.Update, job_queue) -> Optional[Round]:
+def get_round(update: telegram.Update) -> Optional[Round]:
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
 
     if not is_group_chat(message.chat):
-        return error_message(message, job_queue, _(Text.NOT_GROUP))
+        return error_message(message, _(Text.NOT_GROUP))
     game_round = Round.objects.filter(chat_id=message.chat_id).first()
     if not game_round:
-        return error_message(message, job_queue, _(Text.GAME_NOT_IN_ROUND))
+        return error_message(message, _(Text.GAME_NOT_IN_ROUND))
     return game_round
 
 
-def hide_round(bot: telegram.Bot, update: telegram.Update, job_queue):
-    game_round = get_round(update, job_queue)
+def hide_round(bot: telegram.Bot, update: telegram.Update):
+    game_round = get_round(update)
     message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
@@ -170,29 +170,29 @@ def hide_round(bot: telegram.Bot, update: telegram.Update, job_queue):
     if not game_round:
         return
     if not is_gm(message.chat_id, message.from_user.id):
-        return error_message(message, job_queue, _(Text.NOT_GM))
+        return error_message(message, _(Text.NOT_GM))
     game_round.hide = True
     game_round.save()
     refresh_round_message(bot, game_round, _, refresh=True)
     bot.delete_message(message.chat_id, message.message_id)
 
 
-def public_round(bot: telegram.Bot, update: telegram.Update, job_queue):
-    game_round = get_round(update, job_queue)
+def public_round(bot: telegram.Bot, update: telegram.Update):
+    game_round = get_round(update)
     _ = partial(get_by_user, user=update.message.from_user)
     if not game_round:
         return
     if not is_gm(update.message.chat_id, update.message.from_user.id):
         error_text = get_by_user(Text.NOT_GM, update.message.from_user)
-        return error_message(update.message, job_queue, error_text)
+        return error_message(update.message, error_text)
     game_round.hide = False
     game_round.save()
     refresh_round_message(bot, game_round, _, refresh=True)
     bot.delete_message(update.message.chat_id, update.message.message_id)
 
 
-def next_turn(bot: telegram.Bot, update: telegram.Update, job_queue):
-    game_round = get_round(update, job_queue)
+def next_turn(bot: telegram.Bot, update: telegram.Update):
+    game_round = get_round(update)
     if not game_round:
         return
     actors = game_round.get_actors()
@@ -229,7 +229,7 @@ def create_player(bot: telegram.Bot, message: telegram.Message, character_name: 
     return player
 
 
-def handle_initiative(message: telegram.Message, job_queue, name: str, text: str, **_):
+def handle_initiative(message: telegram.Message, name: str, text: str, **_):
     _ = partial(get_by_user, user=message.from_user)
 
     text = text.strip()
@@ -240,12 +240,12 @@ def handle_initiative(message: telegram.Message, job_queue, name: str, text: str
         number = match.group(2)
     elif not text.isnumeric() or len(text) > 4:
         usage = _(Text.INIT_USAGE)
-        error_message(message, job_queue, usage)
+        error_message(message, usage)
         return
 
     game_round = Round.objects.filter(chat_id=message.chat_id).first()
     if not isinstance(game_round, Round):
-        error_message(message, job_queue, _(Text.INIT_WITHOUT_ROUND))
+        error_message(message, _(Text.INIT_WITHOUT_ROUND))
     Actor.objects.create(belong_id=message.chat_id, name=name, value=int(number))
     refresh_round_message(message.bot, game_round, _, refresh=True)
     delete_message(message)

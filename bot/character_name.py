@@ -3,7 +3,7 @@ from typing import Optional
 
 import telegram
 
-from .system import error_message, delete_message
+from .system import error_message, delete_message, send_message
 from .round_counter import create_player
 from .display import Text, get_by_user
 from game.models import Player
@@ -22,13 +22,13 @@ def get_temp_name(chat_id, user_id):
         return player.temp_character_name or ''
 
 
-def set_name(bot: telegram.Bot, update: telegram.Update, args, job_queue):
+def set_name(bot: telegram.Bot, update: telegram.Update, args):
     message = update.message
     assert isinstance(message, telegram.Message)
 
     _ = partial(get_by_user, user=message.from_user)
     if len(args) == 0:
-        return error_message(message, job_queue, _(Text.NAME_SYNTAX_ERROR))
+        return error_message(message, _(Text.NAME_SYNTAX_ERROR))
     user = message.from_user
     assert isinstance(user, telegram.User)
     name = ' '.join(args).strip()
@@ -38,7 +38,7 @@ def set_name(bot: telegram.Bot, update: telegram.Update, args, job_queue):
     else:
         template = _(Text.NAME_SUCCESS)
     send_text = template.format(player=user.full_name, character=name)
-    message.chat.send_message(send_text, parse_mode='HTML')
+    send_message(message.chat_id, send_text)
     delete_message(message)
 
 

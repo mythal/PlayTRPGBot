@@ -7,8 +7,8 @@ from uuid import uuid4
 import telegram
 from redis import Redis
 from telegram import TelegramError
-from telegram.ext import JobQueue
 
+from . import app, bot
 from archive.models import Chat, Log
 from entities import Me, Bold, Character, Span, Entities, Entity
 from .const import REDIS_HOST, REDIS_PORT, REDIS_DB
@@ -21,20 +21,31 @@ class NotGm(Exception):
     pass
 
 
+def send_message(chat_id, text, reply_to=None, parse_mode='HTML', delete_after=None):
+    send_message_task.delay(chat_id, text, reply_to, parse_mode, delete_after)
+
+
+@app.task
+def send_message_task(chat_id, text, reply_to=None, parse_mode='HTML', delete_after=None):
+    sent = bot.send_message(chat_id, text, parse_mode, disable_web_page_preview=True, reply_to_message_id=reply_to)
+    if delete_after:
+        delay_delete_message(chat_id, sent.message_id, delete_after)
+
+
 def is_group_chat(chat: telegram.Chat) -> bool:
     return isinstance(chat, telegram.Chat) and chat.type in ('supergroup', 'group')
 
 
 def delete_message(message: telegram.Message):
-    _ = partial(get_by_user, user=message.from_user)
+    delete_message_task.delay(message.chat_id, message.message_id)
 
+
+@app.task
+def delete_message_task(chat_id, message_id):
     try:
-        message.delete()
+        bot.delete_message(chat_id, message_id)
     except TelegramError:
-        try:
-            message.reply_text(_(Text.DELETE_FAIL))
-        except TelegramError:
-            pass
+        pass
 
 
 def is_gm(chat_id: int, user_id: int) -> bool:
@@ -61,7 +72,7 @@ def is_author(message_id, user_id):
     return bool(Log.objects.filter(message_id=message_id, user_id=user_id).first())
 
 
-def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
+def error_message(message: telegram.Message, text: str):
     _ = partial(get_by_user, user=message.from_user)
     try:
         send_text = '<b>[{}]</b> {}'.format(
@@ -71,41 +82,48 @@ def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
         sent = message.reply_text(send_text, parse_mode='HTML')
     except TelegramError:
         return
-    delay_delete_message(job_queue, message.chat_id, message.message_id, 20)
-    delay_delete_message(job_queue, message.chat_id, sent.message_id, 20)
+    delay_delete_message(message.chat_id, message.message_id, 20)
+    delay_delete_message(message.chat_id, sent.message_id, 20)
 
 
-def delay_delete_message(job_queue: JobQueue, chat_id, message_id, when):
-    context = dict(
-        chat_id=chat_id,
-        message_id_list=(message_id,),
-    )
-    name = "deletion:{}:{}".format(chat_id, message_id)
-    job_queue.run_once(delay_delete_messages_callback, when, context=context, name=name)
+def deletion_task_key(chat_id, message_id):
+    return 'deletion:{}:{}'.format(chat_id, message_id)
 
 
-def cancel_delete_message(job_queue: JobQueue, chat_id, message_id):
-    jobs = job_queue.get_jobs_by_name('deletion:{}:{}'.format(chat_id, message_id))
-    if len(jobs) == 0:
+def delay_delete_message(chat_id, message_id, when):
+    key = deletion_task_key(chat_id, message_id)
+    task_id = redis.get(key)
+    if task_id:
+        app.control.revoke(task_id.decode())
+    task = delete_message_task.apply_async((chat_id, message_id), countdown=when)
+    redis.set(key, task.id)
+
+
+@app.task
+def delete_message_task(chat_id, message_id):
+    try:
+        bot.delete_message(chat_id, message_id)
+    except telegram.error.BadRequest:
+        pass
+    redis.delete(deletion_task_key(chat_id, message_id))
+
+
+def cancel_delete_message(chat_id, message_id):
+    key = deletion_task_key(chat_id, message_id)
+    task_id = redis.get(key)
+    if not task_id:
         return
-    job = jobs[0]
-    job.schedule_removal()
+    app.control.revoke(task_id.decode())
+    redis.delete(key)
 
 
-def handle_edit_message(bot: telegram.Bot, edit_log: Log):
+@app.task
+def handle_edit_message(log_id):
+    edit_log = Log.objects.get(id=log_id)
     if not isinstance(edit_log, Log):
         return
     bot.delete_message(edit_log.chat.chat_id, message_id=edit_log.message_id)
     edit_log.delete()
-
-
-def delay_delete_messages_callback(bot: telegram.Bot, job):
-    chat_id = job.context['chat_id']
-    for message_id in job.context['message_id_list']:
-        try:
-            bot.delete_message(chat_id, message_id)
-        except TelegramError:
-            pass
 
 
 def get_player_by_username(chat_id, username: str) -> Optional[Player]:
@@ -300,7 +318,7 @@ class Deletion:
         redis.set(key, payload)
         redis.expire(key, self.expire_time)
 
-    def do(self, bot: telegram.Bot):
+    def do(self):
         for message_id in self.message_list:
             try:
                 bot.delete_message(self.chat_id, message_id)
