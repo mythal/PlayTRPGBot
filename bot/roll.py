@@ -10,7 +10,8 @@ import dice
 from entities import RollResult, Span, CocResult, LoopResult, Entities
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
-from .system import RpgMessage, get_chat, error_message, delay_delete_messages, delete_message, HideRoll, is_gm
+from .system import RpgMessage, get_chat, error_message, delete_message, HideRoll, \
+    is_gm, delay_delete_message
 from .display import Text, get_by_user
 
 
@@ -206,11 +207,7 @@ def handle_roll(message: telegram.Message, name: str, entities: Entities, job_qu
             kind=kind,
             created=message.date,
         )
-    context = dict(
-        chat_id=message.chat_id,
-        message_id_list=[message.message_id]
-    )
-    job_queue.run_once(delay_delete_messages, 10, context)
+    delay_delete_message(job_queue, message.chat_id, message.message_id, 25)
 
 
 def hide_roll_callback(_, update):

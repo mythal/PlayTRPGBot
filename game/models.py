@@ -30,7 +30,7 @@ class Player(models.Model):
     description = models.CharField(max_length=512, blank=True, default='')
 
     def __str__(self):
-        return self.character_name
+        return '{} ({})'.format(self.character_name, self.full_name)
 
 
 class Variable(models.Model):

@@ -3,11 +3,12 @@ import uuid
 from functools import partial
 
 import telegram
+from telegram.ext import JobQueue
 
 from archive.models import LogKind, Log, Tag, Chat
 from . import display, pattern
 from .character_name import set_temp_name, get_temp_name
-from .system import RpgMessage, is_gm, error_message, delete_message
+from .system import RpgMessage, is_gm, error_message, delay_delete_message
 from .display import Text, get_by_user
 
 
@@ -23,7 +24,7 @@ def is_empty_message(text):
 
 
 def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
-                  start: int, with_photo=None, **_):
+                  start: int, with_photo=None, edit_log=None, **_):
     user_id = message.from_user.id
 
     _ = partial(get_by_user, user=message.from_user)
@@ -43,7 +44,7 @@ def handle_as_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             return error_message(message, job_queue, _(Text.AS_SYNTAX_ERROR))
         rpg_message = RpgMessage(message, start, temp_name=name)
 
-    handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
+    handle_say(bot, chat, job_queue, message, name, rpg_message, edit_log=edit_log, with_photo=with_photo)
 
 
 def get_tag(chat: Chat, name: str):
@@ -60,7 +61,7 @@ def set_photo(log: Log, photo):
     media.close()
 
 
-def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
+def handle_say(bot: telegram.Bot, chat, job_queue: JobQueue, message: telegram.Message,
                name: str, rpg_message: RpgMessage, edit_log=None, with_photo=None):
     _ = partial(get_by_user, user=message.from_user)
     user_id = message.from_user.id
@@ -81,6 +82,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
         send_text = '<b>{}</b>: {}'.format(name, text)
     symbol = get_symbol(message.chat_id, user_id)
     send_text = symbol + send_text
+
     # on edit
     if edit_log:
         assert isinstance(edit_log, Log)
@@ -108,7 +110,6 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
                 )
         except telegram.TelegramError:
             return error_message(message, job_queue, _(Text.EDIT_MESSAGE_FAILED))
-        delete_message(message)
         edit_log.tag.clear()
         for tag_name in rpg_message.tags:
             tag = get_tag(chat, tag_name)
@@ -117,6 +118,7 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
         edit_log.entities = rpg_message.entities.to_object()
         edit_log.kind = kind
         edit_log.save()
+        delay_delete_message(job_queue, message.chat_id, message.message_id, 25)
         return
 
     # send message or photo
@@ -142,12 +144,12 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
             parse_mode='HTML',
         )
 
-    delete_message(message)
     if not chat.recording:
         return
     # record log
     created_log = Log.objects.create(
         message_id=sent.message_id,
+        source_message_id=message.message_id,
         chat=chat,
         user_id=user_id,
         user_fullname=message.from_user.full_name,
@@ -164,3 +166,4 @@ def handle_say(bot: telegram.Bot, chat, job_queue, message: telegram.Message,
     created_log.save()
     # download and write photo file
     set_photo(created_log, with_photo)
+    delay_delete_message(job_queue, message.chat_id, message.message_id, 45)

@@ -63,7 +63,6 @@ def is_author(message_id, user_id):
 
 def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
     _ = partial(get_by_user, user=message.from_user)
-    delete_time = 15
     try:
         send_text = '<b>[{}]</b> {}'.format(
             _(Text.ERROR),
@@ -72,14 +71,35 @@ def error_message(message: telegram.Message, job_queue: JobQueue, text: str):
         sent = message.reply_text(send_text, parse_mode='HTML')
     except TelegramError:
         return
+    delay_delete_message(job_queue, message.chat_id, message.message_id, 20)
+    delay_delete_message(job_queue, message.chat_id, sent.message_id, 20)
+
+
+def delay_delete_message(job_queue: JobQueue, chat_id, message_id, when):
     context = dict(
-        chat_id=message.chat_id,
-        message_id_list=(message.message_id, sent.message_id),
+        chat_id=chat_id,
+        message_id_list=(message_id,),
     )
-    job_queue.run_once(delay_delete_messages, delete_time, context=context)
+    name = "deletion:{}:{}".format(chat_id, message_id)
+    job_queue.run_once(delay_delete_messages_callback, when, context=context, name=name)
 
 
-def delay_delete_messages(bot: telegram.Bot, job):
+def cancel_delete_message(job_queue: JobQueue, chat_id, message_id):
+    jobs = job_queue.get_jobs_by_name('deletion:{}:{}'.format(chat_id, message_id))
+    if len(jobs) == 0:
+        return
+    job = jobs[0]
+    job.schedule_removal()
+
+
+def handle_edit_message(bot: telegram.Bot, edit_log: Log):
+    if not isinstance(edit_log, Log):
+        return
+    bot.delete_message(edit_log.chat.chat_id, message_id=edit_log.message_id)
+    edit_log.delete()
+
+
+def delay_delete_messages_callback(bot: telegram.Bot, job):
     chat_id = job.context['chat_id']
     for message_id in job.context['message_id_list']:
         try:

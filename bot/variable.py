@@ -7,7 +7,8 @@ from telegram.ext import JobQueue
 
 from . import pattern
 from .display import get, Text, get_by_user
-from .system import error_message, delete_message, delay_delete_messages, get_player_by_username, get_player_by_id
+from .system import error_message, delete_message, get_player_by_username,\
+    get_player_by_id, delay_delete_message
 from game.models import Player, Variable
 from archive.models import Log
 
@@ -19,10 +20,7 @@ def handle_clear_variables(message: telegram.Message, player: Player, job_queue,
     sent = message.chat.send_message(send_text, parse_mode='HTML')
     delete_message(message)
     delete_time = 20
-    job_queue.run_once(delay_delete_messages, delete_time, context=dict(
-        chat_id=message.chat_id,
-        message_id_list=(sent.message_id,)
-    ))
+    delay_delete_message(job_queue, message.chat_id, sent.message_id, delete_time)
 
 
 def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: str, player: Player, **_):
@@ -39,10 +37,7 @@ def handle_list_variables(message: telegram.Message, job_queue: JobQueue, name: 
     list_message = message.chat.send_message(send_text, parse_mode='HTML')
     delete_message(message)
     delete_time = 30
-    job_queue.run_once(delay_delete_messages, delete_time, context=dict(
-        chat_id=message.chat_id,
-        message_id_list=(list_message.message_id,)
-    ))
+    delay_delete_message(job_queue, message.chat_id, list_message.message_id, delete_time)
 
 
 class IgnoreLine:
@@ -85,11 +80,8 @@ def variable_message(message: telegram.Message, job_queue: JobQueue,
     user = message.from_user
     assert isinstance(user, telegram.User)
 
-    delete_time = 30
-    job_queue.run_once(delay_delete_messages, delete_time, context=dict(
-        chat_id=message.chat_id,
-        message_id_list=(message.message_id, sent.message_id)
-    ))
+    delay_delete_message(job_queue, message.chat_id, sent.message_id, 40)
+    delay_delete_message(job_queue, message.chat_id, message.message_id, 25)
 
 
 def value_processing(text: str) -> str:

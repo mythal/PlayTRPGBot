@@ -21,7 +21,7 @@ from . import pattern
 from . import const
 from .display import Text, get_by_user, get
 from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message,\
-    get_player_by_id, delay_delete_messages
+    get_player_by_id, delay_delete_message, handle_edit_message, cancel_delete_message
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -178,11 +178,7 @@ def handle_delete(
     delete_message(message)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
     deletion.set(sent.message_id)
-    context = dict(
-        chat_id=message.chat_id,
-        message_id_list=(sent.message_id,),
-    )
-    job_queue.run_once(delay_delete_messages, 30, context)
+    delay_delete_message(job_queue, message.chat_id, sent.message_id, 30)
 
 
 def handle_add_tag(bot: telegram.Bot, chat, job_queue, message: telegram.Message):
@@ -297,10 +293,31 @@ def run_chat_job(_bot, update: telegram.Update):
     update_player(message.chat_id, message.from_user)
 
 
+message_handlers = [
+    (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
+    (re.compile(r'^[.。](hd)\b'), handle_normal_roll),
+    (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
+    (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
+    (re.compile(r'^[.。](init)\b'), handle_initiative),
+    (re.compile(r'^[.。](set)\b'), handle_variable_assign),
+    (re.compile(r'^[.。](list)\b'), handle_list_variables),
+    (re.compile(r'^[.。](clear)\b'), handle_clear_variables),
+    (re.compile(r'^[.。](as)\b'), handle_as_say),
+    (re.compile(r'^[.。](del)\b'), handle_delete),
+]
+
+
 @run_async
-def handle_message(bot, update, job_queue):
-    message = update.message
-    assert isinstance(message, telegram.Message)
+def handle_message(bot, update: telegram.Update, job_queue):
+    message: telegram.Message = update.message
+    if update.edited_message:
+        message = update.edited_message
+        edit_log = Log.objects.filter(chat__chat_id=message.chat_id, source_message_id=message.message_id).first()
+        cancel_delete_message(job_queue, message.chat_id, message. message_id)
+    elif isinstance(message, telegram.Message):
+        edit_log = None
+    else:
+        return
     _ = partial(get_by_user, user=message.from_user)
 
     language_code: str = message.from_user.language_code
@@ -310,6 +327,7 @@ def handle_message(bot, update, job_queue):
         text = message.caption
     if not text or not text.startswith(('.', '。')):
         return
+    # ignore ... or 。。
     if text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
         return
     if not is_group_chat(message.chat):
@@ -317,6 +335,7 @@ def handle_message(bot, update, job_queue):
         return
     elif not isinstance(message.from_user, telegram.User):
         return
+
     chat = get_chat(message.chat)
     player = get_player_by_id(message.chat_id, message.from_user.id)
     if not player:
@@ -324,25 +343,15 @@ def handle_message(bot, update, job_queue):
         return
     name = player.character_name
 
-    handlers = [
-        (re.compile(r'^[.。](rh?)\b'), handle_normal_roll),
-        (re.compile(r'^[.。](hd)\b'), handle_normal_roll),
-        (re.compile(r'^[.。](loh?)\b'), handle_loop_roll),
-        (re.compile(r'^[.。](coch?[+\-]?h?)\s*'), handle_coc_roll),
-        (re.compile(r'^[.。](init)\b'), handle_initiative),
-        (re.compile(r'^[.。](set)\b'), handle_variable_assign),
-        (re.compile(r'^[.。](list)\b'), handle_list_variables),
-        (re.compile(r'^[.。](clear)\b'), handle_clear_variables),
-        (re.compile(r'^[.。](as)\b'), handle_as_say),
-        (re.compile(r'^[.。](del)\b'), handle_delete),
-    ]
-
-    for pat, handler in handlers:
+    for pat, handler in message_handlers:
         result = pattern.split(pat, text)
         if not result:
             continue
         command, start = result
         rest = text[start:]
+        if handler is not handle_as_say:
+            handle_edit_message(bot, edit_log)
+
         handler(
             bot=bot,
             chat=chat,
@@ -355,9 +364,9 @@ def handle_message(bot, update, job_queue):
             job_queue=job_queue,
             with_photo=with_photo,
             language_code=language_code,
+            edit_log=edit_log,
         )
         return
-
     edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(text.lower())
     if edit_command_matched:
         command = edit_command_matched.group(1).lower()
@@ -377,7 +386,7 @@ def handle_message(bot, update, job_queue):
             handle_add_tag(bot, chat, job_queue, message)
     else:
         rpg_message = RpgMessage(message, start=1)
-        handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo)
+        handle_say(bot, chat, job_queue, message, name, rpg_message, with_photo=with_photo, edit_log=edit_log)
 
 
 def handle_photo(message: telegram.Message):
@@ -459,6 +468,7 @@ def run_bot():
         handle_message,
         channel_post_updates=False,
         pass_job_queue=True,
+        edited_updates=True,
     ))
     dp.add_handler(MessageHandler(Filters.status_update, handle_status))
     # always execute `run_chat_job`.
