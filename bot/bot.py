@@ -19,7 +19,7 @@ from .round_counter import round_inline_callback, start_round, hide_round,\
 from . import pattern
 from . import const
 from .display import Text, get_by_user, get
-from .system import RpgMessage, is_group_chat, is_gm, get_chat, error_message,\
+from .system import is_group_chat, is_gm, get_chat, error_message,\
     get_player_by_id, delete_message, after_edit_delete_previous_message, cancel_delete_message, send_message
 
 from archive.models import Chat, Log
@@ -346,10 +346,8 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
 
     if not text:
         return
-    if not player:
-        error_message(message, _(Text.NOT_SET_NAME))
-        return
-    if player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
+
+    if player and player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
         if text.startswith(('[', '【')):
             start_gm_mode(bot, message, chat)
             if len(text) == 1:
@@ -359,6 +357,9 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
             finish_gm_mode(message, chat)
             return
     elif not text or not text.startswith(('.', '。')):
+        return
+    elif not player:
+        error_message(message, _(Text.NOT_SET_NAME))
         return
     if chat.gm_mode and not player.is_gm:
         return

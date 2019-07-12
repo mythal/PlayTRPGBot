@@ -52,7 +52,7 @@ services:
   celery:
     build: .
     image: quanbrew/play_trpg_bot
-    command: celery -A bot.system worker --concurrency 4
+    command: celery -A bot.system worker --concurrency 2
     restart: always
     depends_on:
       - db
