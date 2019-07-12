@@ -5,8 +5,8 @@ import telegram
 
 from . import pattern
 from .display import get, Text, get_by_user
-from .system import error_message, delete_message, get_player_by_username,\
-    get_player_by_id, delay_delete_message, send_message
+from .system import error_message, get_player_by_username,\
+    get_player_by_id, delete_message, send_message
 from game.models import Player, Variable
 from archive.models import Log
 
@@ -15,10 +15,8 @@ def handle_clear_variables(message: telegram.Message, player: Player, **_):
     _ = partial(get_by_user, user=message.from_user)
     player.variable_set.all().delete()
     send_text = _(Text.VARIABLE_CLEARED).format(character=player.character_name)
-    send_message(message.chat_id, send_text)
-    delete_message(message)
-    delete_time = 20
-    delay_delete_message(message.chat_id, sent.message_id, delete_time)
+    send_message(message.chat_id, send_text, delete_after=20)
+    delete_message(message.chat_id, message.message_id)
 
 
 def handle_list_variables(message: telegram.Message, name: str, player: Player, **_):
@@ -33,7 +31,7 @@ def handle_list_variables(message: telegram.Message, name: str, player: Player, 
 
     send_text = '<b>{}</b>\n\n{}'.format(_(Text.VARIABLE_LIST_TITLE).format(character=name), content)
     send_message(message.chat_id, send_text, delete_after=30)
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
 
 
 class IgnoreLine:
@@ -72,7 +70,7 @@ def variable_message(message: telegram.Message, assignment_list: List[Assignment
     for assignment in assignment_list:
         send_text += assignment.display(message.from_user.language_code) + '\n'
     send_message(message.chat_id, send_text, delete_after=40)
-    delay_delete_message(message.chat_id, message.message_id, 25)
+    delete_message(message.chat_id, message.message_id, 25)
 
 
 def value_processing(text: str) -> str:

@@ -8,7 +8,6 @@ from functools import partial
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-from telegram.ext.dispatcher import run_async
 
 from bot.say import handle_as_say, handle_say, get_tag
 from bot.system import Deletion
@@ -20,8 +19,8 @@ from .round_counter import round_inline_callback, start_round, hide_round,\
 from . import pattern
 from . import const
 from .display import Text, get_by_user, get
-from .system import RpgMessage, is_group_chat, delete_message, is_gm, get_chat, error_message,\
-    get_player_by_id, delay_delete_message, handle_edit_message, cancel_delete_message, send_message
+from .system import RpgMessage, is_group_chat, is_gm, get_chat, error_message,\
+    get_player_by_id, delete_message, after_edit_delete_previous_message, cancel_delete_message, send_message
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -78,12 +77,12 @@ def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
     deletion = Deletion.get(message.chat_id, message.message_id)
     if not deletion:
         query.answer(_(Text.INTERNAL_ERROR), alert=True)
-        delete_message(message)
+        delete_message(message.chat_id, message.message_id)
         return
     if deletion.user_id != query.from_user.id:
         query.answer(_(Text.MUST_SAME_USER))
         return
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
     if query.data == 'delete:cancel':
         query.answer(_(Text.CANCELED))
     elif query.data == 'delete:confirm':
@@ -91,7 +90,6 @@ def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
         query.answer(_(Text.DELETED))
 
 
-@run_async
 def inline_callback(bot, update):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
@@ -109,7 +107,7 @@ def inline_callback(bot, update):
 
 def delete_reply_markup(language_code: str):
     def _(t: Text):
-        return get(t)
+        return get(t, language_code)
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(_(Text.CANCEL_DELETE), callback_data='delete:cancel'),
         InlineKeyboardButton(_(Text.CONFIRM_DELETE), callback_data='delete:confirm'),
@@ -153,7 +151,7 @@ def handle_delete(
             variable_id_list.append(variable.id)
         if not variable_id_list:
             return error_message(message, _(Text.NOT_FOUND_VARIABLE_TO_DELETE))
-        delete_message(message)
+        delete_message(message.chat_id, message.message_id)
         check_text = _(Text.CHECK_DELETE_VARIABLE).format(character=target_player.character_name)
         check_text += '\n<pre>{}</pre>'.format(delete_log)
         reply_markup = delete_reply_markup(message.from_user.language_code)
@@ -174,10 +172,10 @@ def handle_delete(
     else:
         error_message(message, get_by_user(Text.DELETE_USAGE, message.from_user))
         return
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
     deletion.set(sent.message_id)
-    delay_delete_message(message.chat_id, sent.message_id, 30)
+    delete_message(message.chat_id, sent.message_id, 30)
 
 
 def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
@@ -233,7 +231,7 @@ def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
         log.tag.add(tag)
 
     log.save()
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
 
 
 def handle_edit(chat, message: telegram.Message, start: int, with_photo=None):
@@ -249,9 +247,8 @@ def handle_edit(chat, message: telegram.Message, start: int, with_photo=None):
     if log is None:
         error_message(message, _(Text.RECORD_NOT_FOUND))
     elif log.user_id == user_id:
-        rpg_message = RpgMessage(message, start)
-        handle_say(chat, message, log.character_name, rpg_message, edit_log=log, with_photo=with_photo)
-        delete_message(message)
+        handle_say(chat, message, log.character_name, edit_log=log, with_photo=with_photo, start=start)
+        delete_message(message.chat_id, message.message_id)
     else:
         error_message(message, _(Text.HAVE_NOT_PERMISSION))
 
@@ -271,16 +268,9 @@ def handle_lift(message: telegram.Message, chat: Chat):
     if not name:
         return error_message(message, _(Text.INVALID_TARGET))
     with_photo = handle_photo(reply_to)
-    handle_say(chat, reply_to, name, RpgMessage(reply_to), with_photo=with_photo)
-    delete_message(reply_to)
-    delete_message(message)
-
-
-@run_async
-def run_chat_job(_bot, update: telegram.Update):
-    message = update.message
-    assert isinstance(message, telegram.Message)
-    update_player(message.chat_id, message.from_user)
+    handle_say(chat, reply_to, name, with_photo=with_photo)
+    delete_message(reply_to.chat_id, reply_to.message_id)
+    delete_message(message.chat_id, message.message_id)
 
 
 message_handlers = [
@@ -315,16 +305,15 @@ def finish_gm_mode(message: telegram.Message, chat: Chat):
         return
 
     if chat.gm_mode_notice:
-        delay_delete_message(chat.chat_id, chat.gm_mode_notice, 20)
+        delete_message(chat.chat_id, chat.gm_mode_notice, 20)
     chat.gm_mode = False
     chat.gm_mode_notice = None
     chat.save()
 
     send_message(chat.chat_id, _(Text.FINISH_GM_MODE), delete_after=20)
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
 
 
-@run_async
 def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     message: telegram.Message = update.message
     if update.edited_message:
@@ -364,7 +353,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
         if text.startswith(('[', '【')):
             start_gm_mode(bot, message, chat)
             if len(text) == 1:
-                delete_message(message)
+                delete_message(message.chat_id, message.message_id)
                 return
         elif text in (']', '】'):
             finish_gm_mode(message, chat)
@@ -382,7 +371,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
         command, start = result
         rest = text[start:]
         if handler is not handle_as_say and edit_log:
-            handle_edit_message.delay(edit_log.id)
+            after_edit_delete_previous_message(edit_log.id)
 
         handler(
             bot=bot,
@@ -416,8 +405,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
         elif command == 'tag':
             handle_add_tag(bot, chat, message)
     else:
-        rpg_message = RpgMessage(message, start=1)
-        handle_say(chat, message, name, rpg_message, edit_log=edit_log, with_photo=with_photo)
+        handle_say(chat, message, name, edit_log=edit_log, with_photo=with_photo, start=1)
 
 
 def handle_photo(message: telegram.Message):
@@ -472,7 +460,7 @@ def set_password(_, update, args):
     else:
         chat.password = ''
     chat.save()
-    message.reply_text(_(Text.PASSWORD_SUCCESS))
+    send_message(message.chat_id, _(Text.PASSWORD_SUCCESS), message.message_id)
 
 
 def run_bot():

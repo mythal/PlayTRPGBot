@@ -3,7 +3,7 @@ from typing import Optional
 
 import telegram
 
-from .system import error_message, delete_message, send_message
+from .system import error_message, send_message, delete_message
 from .round_counter import create_player
 from .display import Text, get_by_user
 from game.models import Player
@@ -39,7 +39,7 @@ def set_name(bot: telegram.Bot, update: telegram.Update, args):
         template = _(Text.NAME_SUCCESS)
     send_text = template.format(player=user.full_name, character=name)
     send_message(message.chat_id, send_text)
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
 
 
 def get_name(message: telegram.Message, temp=False) -> Optional[str]:

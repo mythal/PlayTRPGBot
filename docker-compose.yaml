@@ -52,7 +52,7 @@ services:
   celery:
     build: .
     image: quanbrew/play_trpg_bot
-    command: celery -A bot worker --loglevel=info
+    command: celery -A bot worker --concurrency 4
     restart: always
     depends_on:
       - db

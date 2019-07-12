@@ -376,6 +376,13 @@ language_map: Dict[str, Dict[Text, str]] = {
 }
 
 
+def get_language(user, default='zh-hans') -> str:
+    if not isinstance(user, telegram.User):
+        return default
+    else:
+        return user.language_code or default
+
+
 def get(x: Text, language_code='zh-hans') -> str:
     result = language_map.get(language_code, zh_hans).get(x, None)
     if result is None:
@@ -384,6 +391,4 @@ def get(x: Text, language_code='zh-hans') -> str:
 
 
 def get_by_user(x: Text, user: Optional[telegram.User] = None):
-    if not isinstance(user, telegram.User):
-        return get(x)
-    return get(x, user.language_code)
+    return get(x, language_code=get_language(user))

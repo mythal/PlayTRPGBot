@@ -9,8 +9,8 @@ import dice
 from entities import RollResult, Span, CocResult, LoopResult, Entities
 from archive.models import LogKind, Log, Chat
 from .pattern import LOOP_ROLL_REGEX
-from .system import RpgMessage, get_chat, error_message, delete_message, HideRoll, \
-    is_gm, delay_delete_message, send_message
+from .system import RpgMessage, get_chat, error_message, HideRoll, \
+    is_gm, delete_message, send_message
 from .display import Text, get_by_user
 
 
@@ -28,7 +28,7 @@ def set_dice_face(_bot: telegram.Bot, update, args):
         return
     chat.default_dice_face = face
     chat.save()
-    delete_message(message)
+    delete_message(message.chat_id, message.message_id)
     send_message(message.chat_id, _(Text.DEFAULT_FACE_SETTLED).format(face))
 
 
@@ -191,7 +191,7 @@ def handle_roll(message: telegram.Message, name: str, entities: Entities, chat: 
             kind=kind,
             created=message.date,
         )
-    delay_delete_message(message.chat_id, message.message_id, 25)
+    delete_message(message.chat_id, message.message_id, 25)
 
 
 def hide_roll_callback(_, update):
