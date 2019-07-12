@@ -24,11 +24,11 @@ redis_url = 'redis://{host}:{port}/{db}'.format(host=REDIS_HOST, port=REDIS_PORT
 app = Celery('tasks', broker=redis_url, backend=redis_url)
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
 
-app.conf.update(
-    task_serializer='pickle',
-    accept_content=['pickle', 'json'],
-    result_serializer='pickle',
-)
+# app.conf.update(
+#     task_serializer='pickle',
+#     accept_content=['pickle', 'json'],
+#     result_serializer='pickle',
+# )
 
 
 class NotGm(Exception):
