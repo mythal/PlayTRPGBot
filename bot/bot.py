@@ -347,6 +347,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     if not text:
         return
 
+    # handle GM mode
     if player and player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
         if text.startswith(('[', '【')):
             start_gm_mode(bot, message, chat)
@@ -356,13 +357,19 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
         elif text in (']', '】'):
             finish_gm_mode(message, chat)
             return
+    # not start with . / 。, ignore
     elif not text or not text.startswith(('.', '。')):
         return
+
+    # user hasn't set name
     elif not player:
         error_message(message, _(Text.NOT_SET_NAME))
         return
+
+    # in the GM mode, ignore
     if chat.gm_mode and not player.is_gm:
         return
+
     name = player.character_name
 
     for pat, handler in message_handlers:
@@ -422,7 +429,7 @@ def handle_error(_, update, bot_error):
     logger.warning('Update "%s" caused error "%s"', update, bot_error)
 
 
-def handle_status(bot: telegram.Bot, update):
+def handle_status(_bot: telegram.Bot, update):
     assert isinstance(update.message, telegram.Message)
     message = update.message
 
@@ -430,19 +437,6 @@ def handle_status(bot: telegram.Bot, update):
     if message.new_chat_title:
         chat.title = message.new_chat_title
         chat.save()
-    if message.new_chat_members:
-        for user in message.new_chat_members:
-            if user.id == bot.id:
-                admin = None
-                for x in bot.get_chat_administrators(update.message.chat_id):
-                    if isinstance(x, telegram.ChatMember):
-                        admin = x.user
-                        break
-                message.chat.send_message(
-                    get_by_user(Text.START_TEXT, admin),
-                    parse_mode='HTML',
-                    disable_web_page_preview=True
-                )
 
 
 def set_password(_, update, args):
