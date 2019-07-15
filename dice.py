@@ -16,7 +16,7 @@ class RollError(RuntimeError):
 
 
 class Env:
-    def __init__(self, face=100):
+    def __init__(self, face=20):
         self.face = face
 
 
@@ -55,7 +55,7 @@ operator = [Add, Sub, Mul, Div]
 
 
 class Dice(Symbol):
-    regex = re.compile(r'\d{0,4}d\d{0,4}')
+    regex = re.compile(r'\d{0,4}[dD]\d{0,4}')
 
     def eval(self, env: Env, result_sum=True):
         match = self.name.split('d')
@@ -89,22 +89,28 @@ class Dice(Symbol):
 
 class Max:
     dice = None
-    grammar = 'max', '(', attr('dice', Dice), ')'
+    grammar = (
+        ["最大", "max", "MAX", "Max"],
+        [('(', attr('dice', Dice), ')'), ('（', attr('dice', Dice), '）'), attr('dice', Dice)]
+    )
 
     def eval(self, env):
         value, text = self.dice.eval(env, result_sum=False)
         result = max(value)
-        return result, 'max({})={}'.format(text, result)
+        return result, '[max {}={}]'.format(text, result)
 
 
 class Min:
     dice = None
-    grammar = 'min', '(', attr('dice', Dice), ')'
+    grammar = (
+        ["最小", "min", "Min", "MIN"],
+        [('(', attr('dice', Dice), ')'), ('（', attr('dice', Dice), '）'), attr('dice', Dice)]
+    )
 
     def eval(self, env):
         value, text = self.dice.eval(env, result_sum=False)
         result = min(value)
-        return result, 'min({})={}'.format(text, min(value))
+        return result, '[min {}={}]'.format(text, min(value))
 
 
 # left recursion!
@@ -150,7 +156,11 @@ Expr.grammar = (item, maybe_some(operator, item))
 
 
 class Roll(List):
-    grammar = maybe_some([Expr, re.compile(r'\S+')])
+    grammar = maybe_some([
+        Expr,
+        re.compile(r'[^。.；，,、…！!？/ ⧸⁄—-【】“”"（）()：:\[\]{}<>《》〔〕『』‘’「」\s]+'),
+        re.compile(r'[。.；，,、…！!？/ ⧸⁄—-【】“”"（）()：:\[\]{}<>《》〔〕『』‘’「」]+'),
+    ])
 
     def eval_entities(self, env) -> typing.List[Entity]:
         entities = []
