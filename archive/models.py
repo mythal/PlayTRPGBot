@@ -35,14 +35,14 @@ class Chat(models.Model):
     gm_mode = models.BooleanField(default=False)
     gm_mode_notice = models.BigIntegerField(null=True, default=None)
 
-    def all_log(self):
+    def query_log(self):
         return self.log_set.filter(deleted=False).order_by('created').prefetch_related('reply', 'tag')
 
     def log_count(self):
         key = 'chat:counter:{}'.format(self.chat_id)
         counter = cache.get(key)
         if not counter:
-            counter = self.all_log().count()
+            counter = self.query_log().count()
             cache.set(key, counter, 60*60)
         return counter
 

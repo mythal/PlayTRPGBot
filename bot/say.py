@@ -62,7 +62,7 @@ def handle_say(chat: Chat, message: telegram.Message, name: str, edit_log=None,
 
     kind = LogKind.NORMAL.value
 
-    text = rpg_message.html_text().strip()
+    text = rpg_message.telegram_html_text().strip()
 
     if not text and not with_photo:
         error_message(message, _(Text.EMPTY_MESSAGE))

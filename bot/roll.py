@@ -157,7 +157,7 @@ def handle_normal_roll(message: telegram.Message, command: str, name: str, start
 def handle_roll(message: telegram.Message, name: str, entities: Entities, chat: Chat, hide=False):
     _ = partial(get_by_user, user=message.from_user)
     kind = LogKind.ROLL.value
-    result_text = entities.to_html()
+    result_text = entities.telegram_html()
     if hide:
         hide_roll = HideRoll(message.chat_id, result_text)
         hide_roll.set()

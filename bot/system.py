@@ -228,8 +228,8 @@ class RpgMessage:
     def is_empty(self) -> bool:
         return len(self.entities.list) == 0
 
-    def html_text(self) -> str:
-        text = self.entities.to_html()
+    def telegram_html_text(self) -> str:
+        text = self.entities.telegram_html()
         if self.tags:
             tags = ' '.join(['#{}'.format(tag) for tag in self.tags])
             return '{} {}'.format(text, tags)

@@ -18,7 +18,7 @@ def csv_export(filename, current):
         'Is GM',
         'Date',
     ))
-    for log in current.all_log():
+    for log in current.query_log():
         writer.writerow((
             str(log.message_id),
             log.user_fullname,
@@ -35,13 +35,13 @@ def csv_export(filename, current):
 
 def json_export(_, current):
     export_data = []
-    for log in current.all_log():
+    for log in current.query_log():
         export_data.append({
             'message_id': log.message_id,
             'user_fullname': log.user_fullname,
             'character_name': log.character_name,
             'type': log.get_kind_display(),
-            'content': log.content,
+            'entities': log.entities,
             'media': log.media_url(),
             'is_gm': log.gm,
             'created': log.created,

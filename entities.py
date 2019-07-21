@@ -18,6 +18,9 @@ class Entity:
         obj['kind'] = self.kind
         return obj
 
+    def telegram_html(self):
+        return ''
+
     def html(self):
         return ''
 
@@ -26,7 +29,7 @@ class Entity:
         raise NotImplementedError()
 
     def __repr__(self):
-        return '<{}| {}>'.format(self.kind, self.value)
+        return '<{} | {}>'.format(self.kind, self.value)
 
 
 class Entities:
@@ -44,8 +47,16 @@ class Entities:
         new.list = convert_to_entities(html)
         return new
 
-    def to_html(self) -> str:
-        return entities_to_html(self.list)
+    @staticmethod
+    def from_object(xs: List[dict]) -> 'Entities':
+        return Entities(list(map(object_to_entity, xs)))
+
+    def telegram_html(self) -> str:
+        return entities_to_telegram_html(self.list)
+
+    def html(self) -> str:
+        html = ''.join(map(lambda e: e.html(), self.list))
+        return html.strip()
 
 
 class Span(Entity):
@@ -54,8 +65,11 @@ class Span(Entity):
     def __init__(self, text):
         self.value = text
 
-    def html(self):
+    def telegram_html(self):
         return escape(self.value)
+
+    def html(self):
+        return '<span class="entity-span">{}</span>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> 'Span':
@@ -70,8 +84,14 @@ class Character(Entity):
         self.player_id = player_id
         self.full_name = full_name
 
-    def html(self):
+    def telegram_html(self):
         return '<b>{}</b>'.format(escape(self.value))
+
+    def html(self):
+        return '<strong class="entity-character" title="{full_name}">{character_name}</strong>'.format(
+            character_name=escape(self.value),
+            full_name=escape(self.full_name)
+        )
 
     @staticmethod
     def from_object(obj: dict) -> 'Character':
@@ -85,6 +105,12 @@ class Me(Character):
     def from_object(obj: dict) -> 'Me':
         return Me(obj['value'], obj['player_id'], obj['full_name'])
 
+    def html(self):
+        return '<strong class="entity-character entity-me" title="{full_name}">{character_name}</strong>'.format(
+            character_name=escape(self.value),
+            full_name=escape(self.full_name)
+        )
+
 
 class Bold(Entity):
     kind = 'bold'
@@ -92,8 +118,11 @@ class Bold(Entity):
     def __init__(self, text):
         self.value = text
 
-    def html(self):
+    def telegram_html(self):
         return '<b>{}</b>'.format(escape(self.value))
+
+    def html(self):
+        return '<strong class="entity-bold">{}</strong>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> 'Bold':
@@ -106,8 +135,11 @@ class Code(Entity):
     def __init__(self, text):
         self.value = text
 
-    def html(self):
+    def telegram_html(self):
         return '<code>{}</code>'.format(escape(self.value))
+
+    def html(self):
+        return '<code class="entity-code">{}</code>'.format(escape(self.value))
 
     @staticmethod
     def from_object(obj: dict) -> 'Code':
@@ -121,8 +153,11 @@ class RollResult(Entity):
         self.value = text
         self.result = result
 
-    def html(self):
+    def telegram_html(self):
         return ' <code>{}</code> '.format(escape(self.value))
+
+    def html(self):
+        return '<span class="entity-roll">{}</span>'.format(self.value)
 
     @staticmethod
     def from_object(obj: dict) -> 'RollResult':
@@ -135,11 +170,23 @@ class LoopResult(Entity):
     def __init__(self, rolled: List[int]):
         self.rolled = rolled
 
-    def html(self):
+    def telegram_html(self):
         counter_6 = self.rolled.count(6)
         counter_all = len(self.rolled)
         rolled_text = ', '.join(map(str, self.rolled))
         return ' <code>({}/{}) [{}]</code> '.format(counter_6, counter_all, rolled_text)
+
+    def html(self):
+        counter_6 = self.rolled.count(6)
+        counter_all = len(self.rolled)
+        rolled_text = ', '.join(map(str, self.rolled))
+        return '<span class="entity-loop-roll">' \
+               '<span class="counter">{}/{}</span>' \
+               '<span class="result">{}</span>' \
+               '</span>'\
+            .format(
+                counter_6, counter_all, rolled_text
+            )
 
     @staticmethod
     def from_object(obj: dict) -> 'LoopResult':
@@ -158,7 +205,7 @@ class CocResult(Entity):
 
         self.value = level
 
-    def html(self):
+    def telegram_html(self):
         result = '<code>{rolled}</code> {level}'.format(
             rolled=self.rolled, level=self.level,
         )
@@ -168,6 +215,20 @@ class CocResult(Entity):
                 rolled_list=', '.join(map(str, self.rolled_list)),
             )
         return result
+
+    def html(self):
+        result = '<span class="entity-coc-roll">' \
+                 '<span class="result">{rolled}</span>' \
+                 '<span class="level">{level}</span>' \
+            .format(rolled=self.rolled, level=self.level)
+        if self.modifier_name:
+            result += '<span class="modifier-name">{modifier_name}<span>' \
+                      '<span class="modifier-list">{rolled_list}</span>'\
+                .format(
+                    modifier_name=self.modifier_name,
+                    rolled_list=', '.join(map(str, self.rolled_list)),
+                )
+        return result + '</span>'
 
     @staticmethod
     def from_object(obj: dict) -> 'CocResult':
@@ -203,8 +264,8 @@ def convert_to_entities(content: str) -> List[Entity]:
     return entities
 
 
-def entities_to_html(entities: List[Entity]) -> str:
-    html = ''.join(map(lambda e: e.html(), entities))
+def entities_to_telegram_html(entities: List[Entity]) -> str:
+    html = ''.join(map(lambda e: e.telegram_html(), entities))
     return html.strip()
 
 

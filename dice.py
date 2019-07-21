@@ -97,7 +97,7 @@ class Max:
     def eval(self, env):
         value, text = self.dice.eval(env, result_sum=False)
         result = max(value)
-        return result, '[max {}={}]'.format(text, result)
+        return result, 'max {}'.format(text, result)
 
 
 class Min:
@@ -110,7 +110,7 @@ class Min:
     def eval(self, env):
         value, text = self.dice.eval(env, result_sum=False)
         result = min(value)
-        return result, '[min {}={}]'.format(text, min(value))
+        return result, 'min {}'.format(text, min(value))
 
 
 # left recursion!

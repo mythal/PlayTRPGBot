@@ -49,7 +49,7 @@ class Chat(DjangoObjectType):
 
     @staticmethod
     def resolve_page_counter(chat: models.Chat, info):
-        return chat.all_log().count() % Chat.page_limit
+        return chat.query_log().count() % Chat.page_limit
 
     @staticmethod
     def resolve_log_list(chat: models.Chat, info, password='', tag_id=None, page=1):
@@ -59,7 +59,7 @@ class Chat(DjangoObjectType):
         offset = (page - 1) * Chat.page_limit
         tag_name = None
         if not chat.password or (chat.password and chat.validate(password)):
-            query_set = chat.all_log()
+            query_set = chat.query_log()
             if tag_id:
                 tag: Optional[models.Tag] = models.Tag.objects.filter(id=int(tag_id), chat=chat).first()
                 if tag:

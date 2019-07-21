@@ -1,70 +1,83 @@
 {% extends 'base.html' %}
 {% load staticfiles %}
-{% block title %}{{ chat.title }} - PlayTRPG{% endblock %}
+{% load cache %}
+{% load chat %}
+{% block title %}{{ chat.title }} - Mythal Archive{% endblock %}
+
 {% block header %}
-    <h1>{{ chat.title }}</h1>
-    <a href="/">⇐ Home</a>
+<a class="back-index" href="{% url 'index' %}">Mythal Archives</a>
+<h1><a href="{% url 'chat' chat.id %}">{{ chat.title }}</a></h1>
+{% if tag %}<p class="filter">Tag: {{ tag.name }}</p>{% endif %}
+{% if search %}<p class="filter">Search: {{ search }}</p>{% endif %}
+{% if chat.description %}
+    <section class="description">
+        <h2>Description</h2>
+        {{ chat.description|linebreaks }}
+    </section>
+{% endif %}
 {% endblock %}
+
 {% block main %}
-    <article id="log-list">
-        {% if chat.description %}
-            <section class="description">
-                <h2>Description</h2>
-                {{ chat.description|linebreaks }}
-            </section>
-        {% endif %}
-        <section class="export">
-            <a href="{% url 'export' chat.id chat.title 'json' %}">JSON</a>
-            <a href="{% url 'export' chat.id chat.title 'csv' %}">CSV</a>
-        </section>
-        {% if chat.chat_set.count > 0 %}
-            <section class="sub">
-                <h2>Sub</h2>
-                <ul>
-                    {% for child in chat.chat_set.all %}
-                        <li><a href="{% url 'chat' child.id %}">{{ child.title }}</a></li>
-                    {% endfor %}
-                </ul>
-            </section>
-        {% endif %}
-    <h2>Log</h2>
-        <table>
-            <tbody>
-            {% for log in chat.all_log %}{% with kind=log.get_kind_display %}
-        <tr class="log {{ kind | lower }}{% if log.gm %} gm{% endif %}" id="message-{{ log.message_id }}">
-            {% if kind == 'NORMAL' %}
-                <td class="character">{{ log.character_name }}:</td>
-                <td class="content">
-                    {{ log.content |safe|linebreaksbr }}
-                    {% if log.media %}
-                        <a href="{{ log.media.url }}" class="photo"><img alt="some photo in log"
-                                                                         src="{{ log.media.url }}"></a>
-                    {% endif %}
-                </td>
-            {% elif kind == 'HIDE_DICE' %}
-                <td class="character">{{ log.character_name }}</td>
-                <td class="content"><span class="dice">🎲</span> <span class="roll-text">暗骰</span></td>
-            {% elif kind == 'ROLL' %}
-                <td class="character">{{ log.character_name }}</td>
-                <td class="content"><span class="dice">🎲</span> <span
-                        class="roll-text">{{ log.content |safe|linebreaksbr }}</span></td>
-            {% elif kind == 'ME' %}
-                <td></td>
-                <td class="content">{{ log.content |safe|linebreaksbr }}</td>
-            {% else %}
-                <td colspan="2" class="content"><p>未显示的内容</p></td>
+
+<aside class="tools">
+    <form class="search" action="?{% url_replace 'search' '' %}" method="get">
+        {{ form }}
+        <input type="submit" value="Search">
+    </form>
+    <section class="export">
+        <h2>Export</h2>
+        <ul>
+            <li><a href="{% url 'export' chat.id chat.title 'json' %}">JSON</a></li>
+            <li><a href="{% url 'export' chat.id chat.title 'csv' %}">CSV</a></li>
+        </ul>
+    </section>
+</aside>
+<article class="log-list">
+    <header>
+        <h2>Log</h2>
+    </header>
+    {% for log in log_list %}{% cache 20 log.id log.modified 5 %}{% with kind=log.get_kind_display %}
+    <section class="log kind-{{ kind | lower }}{% if log.gm %} gm-log{% endif %}" id="message-{{ log.message_id }}">
+        {% if log.media %}<section class="media">
+                <a href="{{ log.media.url }}" class="photo"><img alt="Photo" src="{{ log.media.url }}"></a>
+        </section>{% endif %}
+        <section class="content">
+            <strong class="speaker">{{ log.temp_character_name|default:log.character_name }}</strong>
+            {% if log.reply %}
+                <a href="#message-{{ log.reply.message_id }}" title="{{ log.reply.content | striptags }}" class="reply-to">Reply to</a>
             {% endif %}
-            <td class="meta">
-                <time datetime="{{ log.created|date:"c" }}">{{ log.created|date:'y-m-d H:i:s' }}</time>
-                {% if log.reply %}
-                    <span class="reply"><a href="#message-{{ log.reply.message_id }}"
-                                           title="{{ log.reply.content | striptags }}">reply</a></span>
-                {% endif %}
-            </td>
-        </tr>
-    {% endwith %}{% endfor %}
-            </tbody>
-        </table>
+            {% if kind == 'NORMAL' or kind == 'ME' %}
+                {{ log |log_entities|safe }}
+            {% elif kind == 'HIDE_DICE' %}
+                <span class="hidden-roll">[Hided]</span>
+            {% elif kind == 'ROLL' %}
+                {{ log|log_entities|safe }}
+            {% else %}
+                <span class="unknown-record">[Unknown]</span>
+            {% endif %}
+        </section>
+        <aside class="meta">
+            <time class="date" datetime="{{ log.created|date:"c" }}">{{ log.created|date:'y-m-d H:i:s' }}</time>
+            <span class="tags">{% for tag in log.tag.all %}<a class="tag" href="?tag={{ tag.id }}">#{{ tag.name }}</a>{% endfor %}</span>
+        </aside>
+    </section>
+{% endwith %}{% endcache %}{% endfor %}
+<footer class="pagination">
+{% if log_list.has_previous %}
+    <a href="?page=1">&laquo; first</a>
+    <a href="?page={{ log_list.previous_page_number }}">&lsaquo; previous</a>
+{% endif %}
+
+<span class="current">
+    Page {{ log_list.number }} of {{ log_list.paginator.num_pages }}.
+</span>
+
+{% if log_list.has_next %}
+    <a href="?{% url_replace 'page' log_list.next_page_number %}">next &rsaquo;</a>
+    <a href="?{% url_replace 'page' log_list.paginator.num_pages %}">last &raquo;</a>
+{% endif %}
+</footer>
 </article>
-    <script src="{% static 'chat.js' %}"></script>
+<script src="{% static 'chat.js' %}"></script>
+
 {% endblock %}

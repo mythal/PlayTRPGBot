@@ -1,4 +1,4 @@
-let reply_list = document.querySelectorAll('.reply a');
+let reply_list = document.querySelectorAll('.reply-to');
 
 function highlight() {
     let link = document.querySelector(this.getAttribute('href'));

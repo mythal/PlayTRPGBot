@@ -1,16 +1,19 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="">
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="shortcut icon" type="img/png" href="{% static 'mythal.png' %}">
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/>
 </head>
 <body>
-<header id="page_header">{% block header %}{% endblock %}</header>
+<header class="page-header">{% block header %}<a title="index" href="{% url 'index' %}">Mythal Archive</a>{% endblock %}</header>
+<main role="main">
 {% block main %}
 {% endblock %}
-<footer id="page_footer">Telegram Bot: <a href="https://t.me/PlayTRPGBot">@PlayTRPGBot</a></footer>
+</main>
+<footer class="page-footer"><hr><p>A part of the <a href="https://wiki.mythal.net/">Mythal</a> ☆</p></footer>
 </body>
 </html>

@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}PlayTRPG{% endblock %}
-{% block header %}<h1>PlayTRPG</h1>{% endblock %}
+{% block title %}Mythal Archive{% endblock %}
+{% block header %}<h1>Mythal Archives</h1>{% endblock %}
 {% block main %}
 <article>
-    <h2>Index</h2>
+    <p>Archives of @<a href="https://t.me/PlayTRPGBot">PlayTRPGBot</a>.</p>
     <ul>
         {% for chat in chats %}{% with log_count=chat.log_count %}{% if log_count > 0 %}
             <li>
                 <div>
                     {% if chat.password %}<span class="has_password">🔒</span>{% endif %}
                     <a href="{% url 'chat' chat.id %}">{{ chat.title }}</a>
-                    <span class="log-count">({{ log_count }})</span>
+                    <span class="log-counter">({{ log_count }})</span>
                 </div>
             </li>
         {% endif %}{% endwith %}{% endfor %}

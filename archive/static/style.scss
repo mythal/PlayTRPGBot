@@ -1,0 +1,166 @@
+$sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, "Hiragino Sans GB", "PingFang SC", "Heiti SC", "Microsoft YaHei UI", "Microsoft YaHei", "Source Han Sans", sans-serif;
+$serif: Baskerville, serif;
+$monospace: "Sarasa Mono SC", Iosevka, Menlo, Monaco, monospace;
+$bg-color: #FFFFFF;
+$text-color: #111111;
+$main-color: #0aa66b;
+$line-color: #CCCCCC;
+$link-color: darken($main-color, 5%);
+
+html {
+  font-family: $sans;
+  font-size: 18px;
+  background-color: $bg-color;
+  color: $text-color;
+}
+
+body {
+  //margin: 0 auto;
+  max-width: 40rem;
+  padding: 1rem;
+}
+
+ul {
+  list-style: square;
+}
+
+a {
+  text-decoration: none;
+  color: $link-color;
+
+  &:hover {
+    color: lighten($link-color, 10%);
+    background-color: lighten($link-color, 50%);
+  }
+  &:active {
+    color: lighten($link-color, 20%);
+  }
+  &:visited {
+    color: darken($link-color, 5%);
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: $serif;
+  font-weight: normal;
+}
+
+.tools {
+  font-size: 0.8em;
+
+  .search {
+    label {
+      display: none;
+    }
+    input {
+      height: 1.4rem;
+      font-size: 1.2rem;
+    }
+  }
+
+  .export {
+    h2 {
+      display: inline-block;
+    }
+    ul {
+      padding: 0;
+      list-style: none;
+      display: inline-block;
+      li {
+        display: inline-block;
+        font-size: 0.9em;
+      }
+    }
+  }
+}
+
+.filter {
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.log {
+  margin: 0.4em 0;
+
+  .meta {
+    color: lighten($text-color, 50%);
+    font-size: 0.7em;
+    a {
+      color: lighten($link-color, 10%);
+    }
+  }
+
+  .media {
+    img {
+      max-width: 100%;
+      border: solid 1px $line-color;
+    }
+  }
+
+  .speaker {
+    color: lighten($text-color, 70%);
+  }
+
+  .entity-character {
+    margin: 0 0.15em;
+  }
+
+  .entity-roll, .entity-loop-roll, .entity-coc-roll {
+    display: inline-block;
+    font-family: $monospace;
+    font-size: 0.9em;
+    padding: 0.2em;
+    margin: 0 0.2em;
+    background-color: lighten($text-color, 85%);
+    border: 1px solid $line-color;
+  }
+
+  .entity-loop-roll, .entity-coc-roll {
+    .counter, .level {
+      font-size: 0.9em;
+      padding: 0.1em 0.4em;
+      margin: 0.2em 0.2em;
+      background-color: lighten($main-color, 20%);
+      border: 1px solid $line-color;
+    }
+  }
+}
+
+.kind-normal {
+  .speaker {
+    color: $text-color !important;
+    &::after {
+      content: ':';
+    }
+  }
+}
+
+.kind-roll {
+  .speaker::after {
+    content: ' 🎲';
+  }
+}
+
+.pagination {
+  margin-top: 2em;
+  text-align: center;
+
+  a {
+    border: 1px solid $line-color;
+    padding: 0.2em 0.5em;
+  }
+}
+
+
+
+.page-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid $line-color;
+  font-size: 80%;
+  font-style: italic;
+
+  hr {
+    display: none;
+  }
+}
