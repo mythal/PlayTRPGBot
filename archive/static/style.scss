@@ -88,9 +88,25 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+.tag-list {
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: inline-block;
+    margin-right: 1em;
+  }
+}
+
 .filter {
   font-size: 0.8rem;
   font-weight: bold;
+}
+
+.highlight {
+  background-color: lighten($main-color, 30%);
 }
 
 .log {
@@ -109,6 +125,13 @@ h1, h2, h3, h4, h5, h6 {
       max-width: 100%;
       border: solid 1px $line-color;
     }
+  }
+
+  .reply-to {
+    font-size: 0.75em;
+    padding: 0 1em;
+    border-left: 0.5em solid $main-color;
+
   }
 
   .speaker {
@@ -178,3 +201,4 @@ h1, h2, h3, h4, h5, h6 {
     display: none;
   }
 }
+

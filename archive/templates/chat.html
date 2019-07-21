@@ -32,6 +32,14 @@
         </ul>
     </section>
 </aside>
+<article class="tag-list">
+    <h2>Tag</h2>
+    <ul>
+    {% for tag in chat.tag_set.all %}{% if tag.log_set.count > 0 %}
+        <li>#<a href="?tag={{ tag.id }}">{{ tag.name }}</a></li>
+    {% endif %}{% endfor %}
+    </ul>
+</article>
 <article class="log-list">
     <header>
         <h2>Log</h2>
@@ -42,10 +50,15 @@
                 <a href="{{ log.media.url }}" class="photo"><img alt="Photo" src="{{ log.media.url }}"></a>
         </section>{% endif %}
         <section class="content">
-            <strong class="speaker">{{ log.temp_character_name|default:log.character_name }}</strong>
             {% if log.reply %}
-                <a href="#message-{{ log.reply.message_id }}" title="{{ log.reply.content | striptags }}" class="reply-to">Reply to</a>
+                <section class="reply-to">
+                    <a href="#message-{{ log.reply.message_id }}" title="{{ log.reply.content | striptags }}" class="reply-to-link">Reply to</a>
+                    <strong class="reply-to-speaker">{{ log.reply.temp_character_name|default:log.reply.character_name }}</strong>
+                    {{ log.reply|log_entities|safe }}
+                </section>
             {% endif %}
+            <strong class="speaker">{{ log.temp_character_name|default:log.character_name }}</strong>
+
             {% if kind == 'NORMAL' or kind == 'ME' %}
                 {{ log |log_entities|safe }}
             {% elif kind == 'HIDE_DICE' %}

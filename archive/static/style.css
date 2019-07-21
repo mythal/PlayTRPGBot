@@ -70,9 +70,22 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.9em;
 }
 
+.tag-list ul {
+  padding: 0;
+  list-style: none;
+}
+.tag-list li {
+  display: inline-block;
+  margin-right: 1em;
+}
+
 .filter {
   font-size: 0.8rem;
   font-weight: bold;
+}
+
+.highlight {
+  background-color: #54f5b8;
 }
 
 .log {
@@ -88,6 +101,11 @@ h1, h2, h3, h4, h5, h6 {
 .log .media img {
   max-width: 100%;
   border: solid 1px #CCCCCC;
+}
+.log .reply-to {
+  font-size: 0.75em;
+  padding: 0 1em;
+  border-left: 0.5em solid #0aa66b;
 }
 .log .speaker {
   color: #c4c4c4;
