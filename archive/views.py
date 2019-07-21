@@ -45,7 +45,7 @@ def chat(request, chat_id):
             log_set = log_set.filter(content__icontains=keyword)
     if current.password and not is_allow(request.session, chat_id):
         return redirect('require_password', chat_id=chat_id)
-    paginator = Paginator(log_set, per_page=10)
+    paginator = Paginator(log_set, per_page=150)
     page = paginator.page(page_number)
     context = dict(chat=current, log_list=page, tag=tag, search=search, form=forms.Search())
     return render(request, 'chat.html', context)

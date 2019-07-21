@@ -4,14 +4,12 @@
 {% block main %}
 <article>
     <p>Archives of @<a href="https://t.me/PlayTRPGBot">PlayTRPGBot</a>.</p>
-    <ul>
+    <ul class="chat-list">
         {% for chat in chats %}{% with log_count=chat.log_count %}{% if log_count > 0 %}
-            <li>
-                <div>
-                    {% if chat.password %}<span class="has_password">🔒</span>{% endif %}
-                    <a href="{% url 'chat' chat.id %}">{{ chat.title }}</a>
-                    <span class="log-counter">({{ log_count }})</span>
-                </div>
+            <li class="chat-item">
+                {% if chat.password %}<span class="has_password">🔒</span>{% endif %}
+                <a href="{% url 'chat' chat.id %}">{{ chat.title }}</a>
+                <span class="log-counter">({{ log_count }})</span>
             </li>
         {% endif %}{% endwith %}{% endfor %}
     </ul>

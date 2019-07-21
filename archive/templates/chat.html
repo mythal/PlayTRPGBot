@@ -36,7 +36,7 @@
     <header>
         <h2>Log</h2>
     </header>
-    {% for log in log_list %}{% cache 20 log.id log.modified 5 %}{% with kind=log.get_kind_display %}
+    {% for log in log_list %}{% cache 345600 log.id log.modified %}{% with kind=log.get_kind_display %}
     <section class="log kind-{{ kind | lower }}{% if log.gm %} gm-log{% endif %}" id="message-{{ log.message_id }}">
         {% if log.media %}<section class="media">
                 <a href="{{ log.media.url }}" class="photo"><img alt="Photo" src="{{ log.media.url }}"></a>
