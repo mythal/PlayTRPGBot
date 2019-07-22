@@ -3,7 +3,7 @@ from typing import Optional
 
 import telegram
 
-from .system import error_message, send_message, delete_message
+from bot.tasks import send_message, delete_message, error_message
 from .round_counter import create_player
 from .display import Text, get_by_user
 from game.models import Player

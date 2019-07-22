@@ -1,42 +1,26 @@
-import io
 import pickle
 import re
-import uuid
-from functools import partial
 from typing import Optional, List
 from uuid import uuid4
 
 import telegram
 from redis import Redis
 from telegram import Bot
-from celery import Celery
+from django.conf import settings
 
 from archive.models import Chat, Log
+
 from entities import Me, Bold, Character, Span, Entities, Entity
-from .const import REDIS_HOST, REDIS_PORT, REDIS_DB, TOKEN
-from .display import Text, get_by_user
-from .pattern import ME_REGEX, VARIABLE_REGEX
+from .const import TOKEN
+from .patterns import ME_REGEX, VARIABLE_REGEX
 from game.models import Player, Variable
 
-
 bot = Bot(TOKEN)
-redis_url = 'redis://{host}:{port}/{db}'.format(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
-app = Celery('tasks', broker=redis_url, backend=redis_url)
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
-
-# app.conf.update(
-#     task_serializer='pickle',
-#     accept_content=['pickle', 'json'],
-#     result_serializer='pickle',
-# )
+redis = Redis(host=settings.REDIS_URL, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
 
 class NotGm(Exception):
     pass
-
-
-def send_message(chat_id, text, reply_to=None, parse_mode='HTML', delete_after=None):
-    send_message_task.delay(chat_id, text, reply_to, parse_mode, delete_after)
 
 
 def is_group_chat(chat: telegram.Chat) -> bool:
@@ -65,42 +49,6 @@ def get_chat(telegram_chat: telegram.Chat) -> 'Chat':
 
 def is_author(message_id, user_id):
     return bool(Log.objects.filter(message_id=message_id, user_id=user_id).first())
-
-
-def error_message(message: telegram.Message, text: str):
-    _ = partial(get_by_user, user=message.from_user)
-    send_text = '<b>[{}]</b> {}'.format(_(Text.ERROR), text)
-    send_message(message.chat_id, send_text, reply_to=message.message_id, delete_after=20)
-    delete_message(message.chat_id, message.message_id, 20)
-
-
-def deletion_task_key(chat_id, message_id):
-    return 'deletion:{}:{}'.format(chat_id, message_id)
-
-
-def delete_message(chat_id, message_id, when=0):
-    key = deletion_task_key(chat_id, message_id)
-    task_id = redis.get(key)
-    if task_id:
-        app.control.revoke(task_id.decode())
-    if when > 0:
-        task = delete_message_task.apply_async((chat_id, message_id), countdown=when)
-        redis.set(key, task.id)
-    else:
-        delete_message_task.delay(chat_id, message_id)
-
-
-def cancel_delete_message(chat_id, message_id):
-    key = deletion_task_key(chat_id, message_id)
-    task_id = redis.get(key)
-    if not task_id:
-        return
-    app.control.revoke(task_id.decode())
-    redis.delete(key)
-
-
-def after_edit_delete_previous_message(log_id):
-    after_edit_delete_previous_message_task.delay(log_id)
 
 
 def get_player_by_username(chat_id, username: str) -> Optional[Player]:
@@ -133,6 +81,7 @@ class RpgMessage:
                 self.variables = {}
                 for variable in player.variable_set.all():
                     self.variables[variable.name.upper()] = variable.value
+                break
 
         self.tags = []
         if message.caption:
@@ -301,75 +250,3 @@ class Deletion:
         Log.objects.filter(chat__chat_id=self.chat_id, message_id__in=self.message_list).delete()
         if self.variable_id_list:
             Variable.objects.filter(id__in=self.variable_id_list).delete()
-
-
-@app.task
-def set_photo_task(log_id, file_id):
-    log = Log.objects.get(id=log_id)
-    log.media.save('{}.jpeg'.format(uuid.uuid4()), io.BytesIO(b''))
-    media = log.media.open('rb+')
-    bot.get_file(file_id).download(out=media)
-    media.close()
-    log.save()
-
-
-@app.task
-def after_edit_delete_previous_message_task(log_id):
-    edit_log = Log.objects.get(id=log_id)
-    if not isinstance(edit_log, Log):
-        return
-    bot.delete_message(edit_log.chat.chat_id, message_id=edit_log.message_id)
-    edit_log.delete()
-
-
-@app.task
-def delete_message_task(chat_id, message_id):
-    try:
-        bot.delete_message(chat_id, message_id)
-    except telegram.error.BadRequest:
-        pass
-    redis.delete(deletion_task_key(chat_id, message_id))
-
-
-@app.task
-def send_message_task(chat_id, text, reply_to=None, parse_mode='HTML', delete_after=None):
-    sent = bot.send_message(chat_id, text, parse_mode, disable_web_page_preview=True, reply_to_message_id=reply_to)
-    if delete_after and delete_after > 0:
-        delete_message(chat_id, sent.message_id, delete_after)
-
-
-def answer_callback_query(query_id, text=None, show_alert=False, cache_time=0):
-    answer_callback_query_task.delay(query_id, text, show_alert, cache_time)
-
-
-def edit_message(chat_id, message_id, text, parse_mode='HTML'):
-    edit_message_task.delay(chat_id, message_id, text, parse_mode)
-
-
-@app.task
-def edit_message_task(chat_id, message_id, text, parse_mode):
-    bot.edit_message_text(text, chat_id, message_id, parse_mode=parse_mode)
-
-
-@app.task
-def answer_callback_query_task(query_id, text, show_alert, cache_time):
-    bot.answer_callback_query(query_id, text, show_alert, cache_time=cache_time)
-
-
-def edit_message_photo(chat_id, message_id, media_id):
-    edit_message_photo_task.delay(chat_id, message_id, media_id)
-
-
-@app.task
-def edit_message_photo_task(chat_id, message_id, media_id):
-    media = telegram.InputMediaPhoto(media_id)
-    bot.edit_message_media(chat_id, message_id, media=media)
-
-
-def edit_message_caption(chat_id, message_id, text, parse_mode='HTML'):
-    edit_message_caption_task.delay(chat_id, message_id, text, parse_mode)
-
-
-@app.task
-def edit_message_caption_task(chat_id, message_id, text, parse_mode):
-    bot.edit_message_caption(chat_id, message_id, caption=text, parse_mode=parse_mode)

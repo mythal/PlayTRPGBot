@@ -16,11 +16,12 @@ from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_norma
 from .character_name import set_name, get_name
 from .round_counter import round_inline_callback, start_round, hide_round,\
     public_round, next_turn, handle_initiative
-from . import pattern
+from . import patterns
 from . import const
 from .display import Text, get_by_user, get
-from .system import is_group_chat, is_gm, get_chat, error_message,\
-    get_player_by_id, delete_message, after_edit_delete_previous_message, cancel_delete_message, send_message
+from .system import is_group_chat, is_gm, get_chat, get_player_by_id
+from bot.tasks import send_message, delete_message, cancel_delete_message, after_edit_delete_previous_message, \
+    error_message
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -121,7 +122,7 @@ def handle_delete(
         player: Player,
         **_):
     target = message.reply_to_message
-    variables = pattern.VARIABLE_REGEX.findall(message.text)
+    variables = patterns.VARIABLE_REGEX.findall(message.text)
     _ = partial(get_by_user, user=message.from_user)
     # delete variable
     if len(variables) > 0:
@@ -178,13 +179,16 @@ def handle_delete(
     delete_message(message.chat_id, sent.message_id, 30)
 
 
-def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
+def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message, **_kwargs):
     target = message.reply_to_message
 
     _ = partial(get_by_user, user=message.from_user)
-    if not isinstance(target, telegram.Message):
+    if not chat.recording:
+        return error_message(message, _(Text.RECORD_NOT_FOUND))
+    elif not isinstance(target, telegram.Message):
         return error_message(message, _(Text.NEED_REPLY))
-
+    elif target.from_user.id != bot.id:
+        return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
@@ -235,13 +239,17 @@ def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
     delete_message(message.chat_id, message.message_id)
 
 
-def handle_edit(chat, message: telegram.Message, start: int, with_photo=None):
+def handle_edit(chat, bot, message: telegram.Message, start: int, with_photo=None, **_kwargs):
     target = message.reply_to_message
 
     _ = partial(get_by_user, user=message.from_user)
-    if not isinstance(target, telegram.Message):
-        return error_message(message, _(Text.NEED_REPLY))
 
+    if not chat.recording:
+        return error_message(message, _(Text.RECORD_NOT_FOUND))
+    elif not isinstance(target, telegram.Message):
+        return error_message(message, _(Text.NEED_REPLY))
+    elif target.from_user.id != bot.id:
+        return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
     assert isinstance(message.from_user, telegram.User)
     user_id = message.from_user.id
     log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
@@ -254,12 +262,14 @@ def handle_edit(chat, message: telegram.Message, start: int, with_photo=None):
         error_message(message, _(Text.HAVE_NOT_PERMISSION))
 
 
-def handle_lift(message: telegram.Message, chat: Chat):
+def handle_lift(message: telegram.Message, chat: Chat, **_kwargs):
     assert isinstance(message, telegram.Message)
     reply_to = message.reply_to_message
     user_id = message.from_user.id
     _ = partial(get_by_user, user=message.from_user)
-    if not isinstance(reply_to, telegram.Message):
+    if not chat.recording:
+        return error_message(message, _(Text.RECORD_NOT_FOUND))
+    elif not isinstance(reply_to, telegram.Message):
         return error_message(message, _(Text.NEED_REPLY))
     elif reply_to.from_user.id == message.bot.id:
         return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
@@ -268,7 +278,7 @@ def handle_lift(message: telegram.Message, chat: Chat):
     name = get_name(reply_to)
     if not name:
         return error_message(message, _(Text.INVALID_TARGET))
-    with_photo = handle_photo(reply_to)
+    with_photo = get_maximum_photo(reply_to)
     handle_say(chat, reply_to, name, with_photo=with_photo)
     delete_message(reply_to.chat_id, reply_to.message_id)
     delete_message(message.chat_id, message.message_id)
@@ -285,6 +295,9 @@ message_handlers = [
     (re.compile(r'^[.。[【](clear)\b'), handle_clear_variables),
     (re.compile(r'^[.。[【](as)\b'), handle_as_say),
     (re.compile(r'^[.。[【](del)\b'), handle_delete),
+    (re.compile(r'^[.。[【](lift)\b'), handle_lift),
+    (re.compile(r'^[.。[【](edit)\b'), handle_edit),
+    (re.compile(r'^[.。[【](tag)\b'), handle_add_tag),
 ]
 
 
@@ -301,83 +314,104 @@ def start_gm_mode(bot: telegram.Bot, message: telegram.Message, chat: Chat):
 
 def finish_gm_mode(message: telegram.Message, chat: Chat):
     _ = partial(get_by_user, user=message.from_user)
-    if not chat.gm_mode:
-        error_message(message, _(Text.NOT_IN_GM_MODE))
-        return
-
-    if chat.gm_mode_notice:
-        delete_message(chat.chat_id, chat.gm_mode_notice, 20)
-    chat.gm_mode = False
-    chat.gm_mode_notice = None
-    chat.save()
+    if chat.gm_mode:
+        if chat.gm_mode_notice:
+            delete_message(chat.chat_id, chat.gm_mode_notice, 20)
+        chat.gm_mode = False
+        chat.gm_mode_notice = None
+        chat.save()
 
     send_message(chat.chat_id, _(Text.FINISH_GM_MODE), delete_after=20)
     delete_message(message.chat_id, message.message_id)
 
 
+def is_start_gm_mode(text: str) -> bool:
+    return text.startswith(('[', '【'))
+
+
+def is_finish_gm_mode(text: str) -> bool:
+    text = text.rstrip()
+    return text == ']' or text == '】'
+
+
+def is_ellipsis(text: str) -> bool:
+    text = text.replace('。', '.')
+    return text.startswith('..') and not text.startswith('..me')
+
+
+def is_command(text: str) -> bool:
+    return text.startswith(('.', '。'))
+
+
 def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     message: telegram.Message = update.message
+
+    edit_log = None
     if update.edited_message:
         message = update.edited_message
         edit_log = Log.objects.filter(chat__chat_id=message.chat_id, source_message_id=message.message_id).first()
         cancel_delete_message(message.chat_id, message. message_id)
-    elif isinstance(message, telegram.Message):
-        edit_log = None
-    else:
+    elif not isinstance(message, telegram.Message):
         return
-    _ = partial(get_by_user, user=message.from_user)
-
+    elif not isinstance(message.from_user, telegram.User):
+        return
     language_code: str = message.from_user.language_code
-    with_photo = handle_photo(message)
+
+    def _(x: Text):
+        return get(x, language_code)
+
+    with_photo = get_maximum_photo(message)
     text = message.text
     if with_photo:
         text = message.caption
 
     if not isinstance(text, str):
         return
-    # ignore ... or 。。
-    elif text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
+    # ignore ellipsis
+    elif is_ellipsis(text):
         return
 
     if not is_group_chat(message.chat):
         message.reply_text(_(Text.NOT_GROUP))
         return
-    elif not isinstance(message.from_user, telegram.User):
-        return
 
     chat = get_chat(message.chat)
     player = get_player_by_id(message.chat_id, message.from_user.id)
 
-    if not text:
-        return
-
     # handle GM mode
-    if player and player.is_gm and (text.startswith(('[', '【')) or text in (']', '】')):
-        if text.startswith(('[', '【')):
+    if player and player.is_gm and (is_start_gm_mode(text) or is_finish_gm_mode(text)):
+        if is_start_gm_mode(text):
             start_gm_mode(bot, message, chat)
-            if len(text) == 1:
+            if len(text.rstrip()) == 1:
                 delete_message(message.chat_id, message.message_id)
                 return
-        elif text in (']', '】'):
+        elif is_finish_gm_mode(text):
             finish_gm_mode(message, chat)
             return
     # not start with . / 。, ignore
-    elif not text or not text.startswith(('.', '。')):
+    elif not is_command(text):
         return
 
     # user hasn't set name
-    elif not player:
+    if not player:
         error_message(message, _(Text.NOT_SET_NAME))
         return
 
-    # in the GM mode, ignore
-    if chat.gm_mode and not player.is_gm:
+    # in the GM mode
+    if chat.gm_mode and not player.is_gm and not edit_log:
+        if is_command(text):
+            send_message(
+                chat.chat_id,
+                _(Text.PLAYER_IN_THE_GM_MODE),
+                reply_to=message.message_id,
+                delete_after=5
+            )
         return
 
     name = player.character_name
 
-    for pat, handler in message_handlers:
-        result = pattern.split(pat, text)
+    for pattern, handler in message_handlers:
+        result = patterns.split(pattern, text)
         if not result:
             continue
         command, start = result
@@ -400,27 +434,10 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
             edit_log=edit_log,
         )
         return
-    edit_command_matched = pattern.EDIT_COMMANDS_REGEX.match(text.lower())
-    if edit_command_matched:
-        command = edit_command_matched.group(1).lower()
-        reply_to = message.reply_to_message
-        if not chat.recording:
-            error_message(message, _(Text.RECORD_NOT_FOUND))
-        elif not isinstance(reply_to, telegram.Message):
-            error_message(message, _(Text.NEED_REPLY))
-        elif command == 'lift':
-            handle_lift(message, chat)
-        elif reply_to.from_user.id != bot.id:
-            error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
-        elif command == 'edit':
-            handle_edit(chat, message, start=edit_command_matched.end(), with_photo=with_photo)
-        elif command == 'tag':
-            handle_add_tag(bot, chat, message)
-    else:
-        handle_say(chat, message, name, edit_log=edit_log, with_photo=with_photo, start=1)
+    handle_say(chat, message, name, edit_log=edit_log, with_photo=with_photo, start=1)
 
 
-def handle_photo(message: telegram.Message):
+def get_maximum_photo(message: telegram.Message):
     photo_size_list = message.photo
     if len(photo_size_list) == 0:
         return None

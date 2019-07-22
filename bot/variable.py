@@ -3,10 +3,11 @@ from typing import List
 
 import telegram
 
-from . import pattern
+from . import patterns
 from .display import get, Text, get_by_user
-from .system import error_message, get_player_by_username,\
-    get_player_by_id, delete_message, send_message
+from .system import get_player_by_username,\
+    get_player_by_id
+from bot.tasks import send_message, delete_message, error_message
 from game.models import Player, Variable
 from archive.models import Log
 
@@ -74,7 +75,7 @@ def variable_message(message: telegram.Message, assignment_list: List[Assignment
 
 
 def value_processing(text: str) -> str:
-    text = pattern.VARIABLE_IGNORE_HEAD.sub('', text)
+    text = patterns.VARIABLE_IGNORE_HEAD.sub('', text)
     return text.strip()
 
 
@@ -127,7 +128,7 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, start: 
     for line in text.splitlines():
         line = line.strip()
         # .set $VARIABLE + 42
-        matched = pattern.VARIABLE_MODIFY_REGEX.match(line)
+        matched = patterns.VARIABLE_MODIFY_REGEX.match(line)
         if matched:
             var_name = matched.group(1)
             operator = matched.group(2)
@@ -151,7 +152,7 @@ def handle_variable_assign(bot: telegram.Bot, message: telegram.Message, start: 
                 variable.save()
                 assignment_list.append(Assignment(assign_player, variable, old_value))
         else:
-            matched = pattern.VARIABLE_NAME_REGEX.search(line)
+            matched = patterns.VARIABLE_NAME_REGEX.search(line)
             if not matched:
                 continue
             var_name = matched.group(1).strip()

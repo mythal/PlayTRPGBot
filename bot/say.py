@@ -2,11 +2,12 @@ from functools import partial
 
 import telegram
 
-from bot.system import set_photo_task, edit_message_photo, edit_message_caption, edit_message
+from bot.tasks import set_photo_task, edit_message, edit_message_photo, edit_message_caption, delete_message, \
+    error_message
 from archive.models import LogKind, Log, Tag, Chat
-from . import display, pattern
+from . import display, patterns
 from .character_name import set_temp_name, get_temp_name
-from .system import RpgMessage, is_gm, error_message, delete_message, bot
+from .system import RpgMessage, is_gm, bot
 from .display import Text, get_by_user
 
 
@@ -18,18 +19,16 @@ def get_symbol(chat_id, user_id) -> str:
 
 
 def is_empty_message(text):
-    return pattern.ME_REGEX.sub('', text).strip() == ''
+    return patterns.ME_REGEX.sub('', text).strip() == ''
 
 
 def handle_as_say(chat, message: telegram.Message, start: int, name: str, with_photo=None, edit_log=None, **_):
     user_id = message.from_user.id
 
     _ = partial(get_by_user, user=message.from_user)
-    match = pattern.AS_REGEX.match(message.caption or message.text)
+    match = patterns.AS_REGEX.match(message.caption or message.text)
 
-    if not is_gm(chat.chat_id, user_id):
-        return error_message(message, _(Text.NOT_GM))
-    elif match:
+    if match:
         temp_name = match.group(1).strip()
         if temp_name.strip() == '':
             return error_message(message, _(Text.EMPTY_NAME))
@@ -136,7 +135,7 @@ def send_and_record(chat, gm, kind, message: telegram.Message, name, reply_log, 
     # download and write photo file
     if with_photo:
         set_photo(created_log.id, with_photo.file_id)
-    delete_message(message.chat_id, message.message_id, 45)
+    delete_message(message.chat_id, message.message_id, 10)
     chat.save()
 
 

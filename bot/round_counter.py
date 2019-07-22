@@ -3,11 +3,10 @@ from typing import Optional
 
 import telegram
 from django.db import transaction
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, TelegramError
 
-from .system import NotGm, is_group_chat, error_message, is_gm, delete_message, app, bot, answer_callback_query,\
-    edit_message
-from .pattern import INITIATIVE_REGEX
+from bot.tasks import update_round_message_task, answer_callback_query, edit_message, error_message, delete_message
+from .system import NotGm, is_group_chat, is_gm, bot
+from .patterns import INITIATIVE_REGEX
 from game.models import Round, Player, Actor
 from .display import Text, get_by_user, get, get_language
 
@@ -82,62 +81,6 @@ def remove_round(chat_id):
         message_id = game_round.message_id
         game_round.delete()
         delete_message(chat_id, message_id)
-
-
-@app.task
-def update_round_message_task(chat_id, language_code, refresh):
-    def get_text(t):
-        return get(t, language_code)
-
-    game_round = Round.objects.get(chat_id=chat_id)
-    reply_markup = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(get_text(Text.ROUND_REMOVE), callback_data='round:remove'),
-            InlineKeyboardButton(get_text(Text.ROUND_FINISH), callback_data='round:finish'),
-            InlineKeyboardButton("←", callback_data='round:prev'),
-            InlineKeyboardButton("/next", callback_data='round:next'),
-        ],
-    ])
-
-    actors = game_round.get_actors()
-    if not actors:
-        return
-    game_round.counter = game_round.counter % len(actors)
-    counter = game_round.counter
-    state = ''
-    if game_round.hide:
-        state = '[{}]'.format(get_text(Text.HIDED_ROUND_LIST))
-    round_counter = get_text(Text.ROUND_COUNTER).format(round_number=game_round.round_counter)
-    text = '<b>{}</b> {state} #round\n\n{round_number}   [{counter}/{total}]\n\n'.format(
-        get_text(Text.ROUND_INDICATOR),
-        state=state,
-        round_number=round_counter,
-        counter=counter + 1,
-        total=len(actors),
-    )
-    for index, actor in enumerate(actors):
-        is_current = counter == index
-        if is_current:
-            text += '• {} ({}) ← {}\n'.format(actor.name, actor.value, get_text(Text.CURRENT))
-        elif not game_round.hide:
-            text += '◦ {} ({})\n'.format(actor.name, actor.value)
-
-    if refresh:
-        try:
-            bot.edit_message_text(
-                text,
-                chat_id=game_round.chat_id,
-                message_id=game_round.message_id,
-                parse_mode='HTML',
-                reply_markup=reply_markup,
-            )
-        except TelegramError:
-            pass
-    else:
-        bot.delete_message(game_round.chat_id, game_round.message_id)
-        message = bot.send_message(game_round.chat_id, text, parse_mode='HTML', reply_markup=reply_markup)
-        game_round.message_id = message.message_id
-        game_round.save()
 
 
 def update_round_message(game_round: Round, language_code, refresh=False):

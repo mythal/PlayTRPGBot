@@ -171,9 +171,11 @@ class Text(Enum):
     ALREADY_IN_GM_MODE = auto()
     NOT_IN_GM_MODE = auto()
     FINISH_GM_MODE = auto()
+    PLAYER_IN_THE_GM_MODE = auto()
 
 
 zh_hans: Dict[Text, str] = {
+    Text.PLAYER_IN_THE_GM_MODE: '主持人开启了 GM 模式，玩家的发言会被忽略',
     Text.START_GM_MODE: '==== <b>GM Only</b> ====',
     Text.FINISH_GM_MODE: '==== ¶ 请继续发言 ====',
     Text.NOT_IN_GM_MODE: '当前并没有在 GM 模式',
@@ -273,6 +275,7 @@ zh_hans: Dict[Text, str] = {
 
 
 zh_hant: Dict[Text, str] = {
+    Text.PLAYER_IN_THE_GM_MODE: '主持人開啓了 GM 模式，玩家的發言會被忽略',
     Text.START_GM_MODE: '〖<b>GM Only</b>',
     Text.FINISH_GM_MODE: '¶ 請繼續發言〗',
     Text.NOT_IN_GM_MODE: '當前並沒有在 GM 模式',

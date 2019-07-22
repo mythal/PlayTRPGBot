@@ -14,7 +14,7 @@ ME_REGEX = re.compile(r'[.。]me(?![a-zA-Z0-9_\-])')
 USERNAME_REGEX = re.compile(r'@([a-zA-Z0-9_]{5,})')
 
 # ..(space)..[name];..(space)..
-AS_REGEX = re.compile(r'^[.。]as\s*([^;；]+)[;；]\s*')
+AS_REGEX = re.compile(r'^[.。【[]as\s*([^;；]+)[;；]\s*')
 
 VARIABLE_REGEX = re.compile(r'[$¥]([\w_0-9]{1,32})')
 
@@ -24,11 +24,9 @@ VARIABLE_MODIFY_REGEX = re.compile(r'^\s*[$¥]?([\w_0-9]{1,32})\s*([+\-])\s*')
 
 VARIABLE_IGNORE_HEAD = re.compile(r'^\s*=\s*')
 
-EDIT_COMMANDS_REGEX = re.compile(r'^[.。](del|edit|lift|tag)(?![a-zA-Z0-9_\-])')
 
-
-def split(pattern, text: str) -> Optional[Tuple[str, int]]:
-    result = re.match(pattern, text.lower())
+def split(patterns, text: str) -> Optional[Tuple[str, int]]:
+    result = re.match(patterns, text.lower())
     if result is None:
         return None
     else:

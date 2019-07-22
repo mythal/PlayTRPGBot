@@ -8,9 +8,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import dice
 from entities import RollResult, Span, CocResult, LoopResult, Entities
 from archive.models import LogKind, Log, Chat
-from .pattern import LOOP_ROLL_REGEX
-from .system import RpgMessage, get_chat, error_message, HideRoll, \
-    is_gm, delete_message, send_message
+from .patterns import LOOP_ROLL_REGEX
+from .system import RpgMessage, get_chat, HideRoll, \
+    is_gm
+from bot.tasks import send_message, delete_message, error_message
 from .display import Text, get_by_user
 
 
