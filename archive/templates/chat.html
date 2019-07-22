@@ -15,16 +15,16 @@
         {{ chat.description|linebreaks }}
     </section>
 {% endif %}
-{% if tag %}<p class="filter">Tag: {{ tag.name }} (<a href="?{% url_replace 'tag' '' %}">clear</a>)</p>{% endif %}
-{% if search %}<p class="filter">Search: {{ search }} (<a href="?{% url_replace 'search' '' %}">clear</a>)</p>{% endif %}
-<p class="filter">{% if reverse %}Newest First (<a href="?{% url_replace 'reverse' '0' %}">reverse</a>){% else %}Oldest First (<a href="?{% url_replace 'reverse' '1' %}">reverse</a>)</p>{% endif %}
 {% endcache %}
 {% endblock %}
 
 {% block main %}
 {% cache TTL 'chat-page' chat.id chat.modified tag search page_number reverse %}
-{% cache TTL 'tools' chat.id %}
+{% cache TTL 'tools' chat.id chat.modified tag search page_number reverse %}
 <aside class="tools">
+    {% if tag %}<p class="filter">Tag: {{ tag.name }} (<a href="?{% url_replace 'tag' '' %}">clear</a>)</p>{% endif %}
+    {% if search %}<p class="filter">Search: {{ search }} (<a href="?{% url_replace 'search' '' %}">clear</a>)</p>{% endif %}
+    <p class="filter">{% if reverse %}Newest First (<a href="?{% url_replace 'reverse' '0' %}">reverse</a>){% else %}Oldest First (<a href="?{% url_replace 'reverse' '1' %}">reverse</a>)</p>{% endif %}
     <form class="search" action="" method="get">
         {{ form }}
         <input type="submit" value="Search">

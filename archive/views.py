@@ -80,7 +80,7 @@ def require_password(request, chat_id):
         wrong = True
     else:
         form = forms.Password()
-    context = dict(chat=current, form=form, wrong=wrong)
+    context = dict(chat=current, form=form, wrong=wrong, TTL=CACHE_TTL)
     return render(request, 'require_password.html', context, status=401)
 
 
