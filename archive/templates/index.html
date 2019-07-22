@@ -7,7 +7,7 @@
     <p>Archives of @<a href="https://t.me/PlayTRPGBot">PlayTRPGBot</a>.</p>
     <ul class="chat-list">
         {% for chat in chats %}
-            {% cache CACHE_TTL 'chat-item' chat.id chat.modified %}
+            {% cache TTL 'chat-item' chat.id chat.modified %}
             {% with log_count=chat.log_count %}
                 {% if log_count > 0 %}
                 <li class="chat-item">
