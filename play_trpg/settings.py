@@ -43,8 +43,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    'debug_toolbar',
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append('debug_toolbar')
 
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
