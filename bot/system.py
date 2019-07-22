@@ -16,7 +16,7 @@ from .patterns import ME_REGEX, VARIABLE_REGEX
 from game.models import Player, Variable
 
 bot = Bot(TOKEN)
-redis = Redis(host=settings.REDIS_URL, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
 
 class NotGm(Exception):
