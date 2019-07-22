@@ -2,25 +2,30 @@
 {% load staticfiles %}
 {% load cache %}
 {% load chat %}
+
 {% block title %}{{ chat.title }} - Mythal Archive{% endblock %}
 
 {% block header %}
+
+{% cache TTL 'chat-header' chat.id tag search reverse chat.modified %}
 <a class="back-index" href="{% url 'index' %}">Mythal Archives</a>
 <h1><a href="{% url 'chat' chat.id %}">{{ chat.title }}</a></h1>
-{% if tag %}<p class="filter">Tag: {{ tag.name }}</p>{% endif %}
-{% if search %}<p class="filter">Search: {{ search }}</p>{% endif %}
 {% if chat.description %}
     <section class="description">
-        <h2>Description</h2>
         {{ chat.description|linebreaks }}
     </section>
 {% endif %}
+{% if tag %}<p class="filter">Tag: {{ tag.name }} (<a href="?{% url_replace 'tag' '' %}">clear</a>)</p>{% endif %}
+{% if search %}<p class="filter">Search: {{ search }} (<a href="?{% url_replace 'search' '' %}">clear</a>)</p>{% endif %}
+<p class="filter">{% if reverse %}Newest First (<a href="?{% url_replace 'reverse' '0' %}">reverse</a>){% else %}Oldest First (<a href="?{% url_replace 'reverse' '1' %}">reverse</a>)</p>{% endif %}
+{% endcache %}
 {% endblock %}
 
 {% block main %}
-
+{% cache TTL 'chat-page' chat.id chat.modified tag search page_number reverse %}
+{% cache TTL 'tools' chat.id %}
 <aside class="tools">
-    <form class="search" action="?{% url_replace 'search' '' %}" method="get">
+    <form class="search" action="" method="get">
         {{ form }}
         <input type="submit" value="Search">
     </form>
@@ -31,20 +36,23 @@
             <li><a href="{% url 'export' chat.id chat.title 'csv' %}">CSV</a></li>
         </ul>
     </section>
+    <section class="tag-list">
+        <ul>
+        {% for tag in tag_list %}
+            <li>#<a href="?tag={{ tag.id }}">{{ tag.name }}</a></li>
+        {% endfor %}
+        </ul>
+    </section>
 </aside>
-<article class="tag-list">
-    <h2>Tag</h2>
-    <ul>
-    {% for tag in chat.tag_set.all %}{% if tag.log_set.count > 0 %}
-        <li>#<a href="?tag={{ tag.id }}">{{ tag.name }}</a></li>
-    {% endif %}{% endfor %}
-    </ul>
-</article>
+{% endcache %}
+
 <article class="log-list">
     <header>
         <h2>Log</h2>
     </header>
-    {% for log in log_list %}{% cache 345600 log.id log.modified %}{% with kind=log.get_kind_display %}
+    {% for log in log_list %}
+    {% cache TTL 'log' log.id log.modified %}
+    {% with kind=log.get_kind_display %}
     <section class="log kind-{{ kind | lower }}{% if log.gm %} gm-log{% endif %}" id="message-{{ log.message_id }}">
         {% if log.media %}<section class="media">
                 <a href="{{ log.media.url }}" class="photo"><img alt="Photo" src="{{ log.media.url }}"></a>
@@ -74,7 +82,9 @@
             <span class="tags">{% for tag in log.tag.all %}<a class="tag" href="?tag={{ tag.id }}">#{{ tag.name }}</a>{% endfor %}</span>
         </aside>
     </section>
-{% endwith %}{% endcache %}{% endfor %}
+    {% endwith %}
+    {% endcache %}
+    {% endfor %}
 <footer class="pagination">
 {% if log_list.has_previous %}
     <a href="?page=1">&laquo; first</a>
@@ -93,4 +103,5 @@
 </article>
 <script src="{% static 'chat.js' %}"></script>
 
+{% endcache %}
 {% endblock %}

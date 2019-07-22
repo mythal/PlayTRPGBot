@@ -1,8 +1,10 @@
+import datetime
 from enum import Enum, auto
 from hashlib import sha256
+from typing import Optional
 
 from django.db import models
-from django.core.cache import cache
+from django.db.models import Count
 from django.contrib.postgres.fields import JSONField
 
 
@@ -22,9 +24,19 @@ def choice(enum):
     return [(kind.value, kind.name) for kind in enum]
 
 
+def query_log(log_set, reverse):
+    filtered = log_set.filter(deleted=False)
+    if reverse:
+        queryset = filtered.order_by('-created')
+    else:
+        queryset = filtered.order_by('created')
+    return queryset.select_related('reply').prefetch_related('tag')
+
+
 class Chat(models.Model):
     chat_id = models.BigIntegerField('Chat ID', db_index=True)
     created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
     title = models.CharField(max_length=256)
     parent = models.ForeignKey('Chat', on_delete=models.CASCADE, null=True, default=None, blank=True)
     description = models.TextField(blank=True)
@@ -35,16 +47,21 @@ class Chat(models.Model):
     gm_mode = models.BooleanField(default=False)
     gm_mode_notice = models.BigIntegerField(null=True, default=None)
 
-    def query_log(self):
-        return self.log_set.filter(deleted=False).order_by('created').prefetch_related('reply', 'tag')
+    def recent_modified(self) -> Optional[datetime.datetime]:
+        field = 'modified'
+        result = self.log_set.order_by(field).values(field).first()
+        if not result:
+            return None
+        return result[field]
+
+    def query_log(self, reverse=False):
+        return query_log(self.log_set, reverse)
+
+    def query_tag(self):
+        return self.tag_set.annotate(log_count=Count('log')).filter(log_count__gt=0)
 
     def log_count(self):
-        key = 'chat:counter:{}'.format(self.chat_id)
-        counter = cache.get(key)
-        if not counter:
-            counter = self.query_log().count()
-            cache.set(key, counter, 60*60)
-        return counter
+        return self.query_log().count()
 
     def validate(self, password):
         if not self.password:
@@ -98,3 +115,6 @@ class Tag(models.Model):
 
     def __str__(self):
         return '{}::{}'.format(self.chat.title, self.name)
+
+    def query_log(self, reverse=False):
+        return query_log(self.log_set, reverse)

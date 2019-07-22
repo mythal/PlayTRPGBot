@@ -137,6 +137,7 @@ def send_and_record(chat, gm, kind, message: telegram.Message, name, reply_log, 
     if with_photo:
         set_photo(created_log.id, with_photo.file_id)
     delete_message(message.chat_id, message.message_id, 45)
+    chat.save()
 
 
 def on_edit(chat: Chat, edit_log: Log, kind, message, rpg_message: RpgMessage, send_text, text, with_photo):
@@ -159,4 +160,5 @@ def on_edit(chat: Chat, edit_log: Log, kind, message, rpg_message: RpgMessage, s
     edit_log.kind = kind
     edit_log.save()
     delete_message(message.chat_id, message.message_id, 25)
+    chat.save()
     return

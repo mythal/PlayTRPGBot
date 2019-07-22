@@ -16,16 +16,12 @@ Including another URLconf
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from django.conf.urls import url
-from django.views.decorators.csrf import csrf_exempt
-from graphene_django.views import GraphQLView
 
 from play_trpg import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('archive.urls')),
-    url(r'^graphql$', csrf_exempt(GraphQLView.as_view(graphiql=True))),
 
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

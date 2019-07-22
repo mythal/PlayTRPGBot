@@ -231,6 +231,7 @@ def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message):
         log.tag.add(tag)
 
     log.save()
+    chat.save()
     delete_message(message.chat_id, message.message_id)
 
 

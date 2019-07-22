@@ -41,14 +41,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'graphene_django',
-    'corsheaders',
+    'django.contrib.postgres',
     'debug_toolbar',
 ]
 
-GRAPHENE = {
-    'SCHEMA': 'archive.schema.schema',  # Where your Graphene schema lives
-}
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
 
@@ -86,9 +82,7 @@ CACHE_MIDDLEWARE_KEY_PREFIX = 'a'
 INTERNAL_IPS = ['127.0.0.1']
 
 if DEBUG:
-    MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-    CORS_ORIGIN_ALLOW_ALL = True
 
 ROOT_URLCONF = 'play_trpg.urls'
 

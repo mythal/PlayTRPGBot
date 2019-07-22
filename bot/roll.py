@@ -191,6 +191,7 @@ def handle_roll(message: telegram.Message, name: str, entities: Entities, chat: 
             kind=kind,
             created=message.date,
         )
+        chat.save()
     delete_message(message.chat_id, message.message_id, 25)
 
 
