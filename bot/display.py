@@ -62,7 +62,7 @@ START_ZH_HANS = '''
 
 开始前需要输入 <code>/name 你的角色名</code>，<a href="https://wiki.mythal.net/PlayTRPGBot">这里是所有命令说明</a>
 
-<a href="https://archive.paotuan.space">在这里可以查看记录下的日志</a>
+<a href="https://log.mythal.net">在这里可以查看记录下的日志</a>
 
 祝冒险愉快！
 '''
@@ -77,7 +77,7 @@ START_ZH_HANT = '''
 
 開始前需要輸入 <code>/name 你的角色名</code>，<a href="https://wiki.mythal.net/PlayTRPGBot">這裏是所有命令說明</a>
 
-<a href="https://archive.paotuan.space">在這裏可以查看記錄下的日誌</a>
+<a href="https://log.mythal.net">在這裏可以查看記錄下的日誌</a>
 
 祝冒險愉快！
 '''

@@ -333,9 +333,12 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
     if with_photo:
         text = message.caption
 
-    # ignore ... or 。。
-    if text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
+    if not isinstance(text, str):
         return
+    # ignore ... or 。。
+    elif text.startswith(('。。', '..')) and not text.startswith(('。。me', '..me')):
+        return
+
     if not is_group_chat(message.chat):
         message.reply_text(_(Text.NOT_GROUP))
         return
