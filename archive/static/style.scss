@@ -136,6 +136,12 @@ h1, h2, h3, h4, h5, h6 {
 
   .speaker {
     color: lighten($text-color, 70%);
+    &::before {
+      content: "(";
+    }
+    &::after {
+      content: ")";
+    }
   }
 
   .entity-character {
@@ -169,10 +175,16 @@ h1, h2, h3, h4, h5, h6 {
     &::after {
       content: ':';
     }
+    &::before {
+      content: '';
+    }
   }
 }
 
 .kind-roll {
+  .speaker::before {
+    content: '';
+  }
   .speaker::after {
     content: ' 🎲';
   }

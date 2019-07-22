@@ -110,6 +110,12 @@ h1, h2, h3, h4, h5, h6 {
 .log .speaker {
   color: #c4c4c4;
 }
+.log .speaker::before {
+  content: "(";
+}
+.log .speaker::after {
+  content: ")";
+}
 .log .entity-character {
   margin: 0 0.15em;
 }
@@ -136,7 +142,13 @@ h1, h2, h3, h4, h5, h6 {
 .kind-normal .speaker::after {
   content: ":";
 }
+.kind-normal .speaker::before {
+  content: "";
+}
 
+.kind-roll .speaker::before {
+  content: "";
+}
 .kind-roll .speaker::after {
   content: " 🎲";
 }
