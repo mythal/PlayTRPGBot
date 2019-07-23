@@ -13,7 +13,7 @@
         <span class="entity-roll">{{ entity.value }}</span>
     {% elif entity.kind == 'coc-roll' %}
         <span class="entity-coc-roll">
-            <span class="result">{{ entity.rolled }}</span>
+            <span class="rolled">{{ entity.rolled }}</span>
             <span class="level">{{ entity.level }}</span>
             {% if entity.modifier_name %}
                 <span class="modifier-name">{{ entity.modifier_name }}</span>
@@ -23,7 +23,7 @@
     {% elif entity.kind == 'loop-roll' %}
         <span class="entity-loop-roll">
             <span class="counter">{{ entity.rolled|counter_6 }}/{{ entity.rolled|length }}</span>
-            <span class="result">{{ entity.rolled }}</span>
+            <span class="rolled">{{ entity.rolled }}</span>
         </span>
     {% else %}
         <span class="entity-unknown">Unknown</span>

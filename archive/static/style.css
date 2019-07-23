@@ -89,7 +89,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .log {
-  margin: 0.4em 0;
+  margin: 0;
+  padding: 0.35em 0;
 }
 .log .meta {
   color: #919191;
@@ -134,6 +135,13 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0.2em 0.2em;
   background-color: #24f2a4;
   border: 1px solid #CCCCCC;
+}
+
+.gm-log {
+  border-right: 0.5em solid #0dd68a;
+}
+.gm-log:hover {
+  border-right-color: #0eee9a;
 }
 
 .kind-normal .speaker {

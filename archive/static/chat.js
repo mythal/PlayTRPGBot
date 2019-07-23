@@ -1,4 +1,4 @@
-let reply_list = document.querySelectorAll('.reply-to-link');
+let replyList = document.querySelectorAll('.reply-to-link');
 
 function highlight() {
     let link = document.querySelector(this.getAttribute('href'));
@@ -8,40 +8,52 @@ function highlight() {
     }, 200);
 }
 
-for (let i = 0; i < reply_list.length; i++) {
-    reply_list[i].addEventListener('click', highlight);
+for (let i = 0; i < replyList.length; i++) {
+    replyList[i].addEventListener('click', highlight);
 }
 
-const stringHash = s => {
-  let hash = 0;
-  let i;
-  let chr;
-  if (s.length === 0) return hash;
-  for (i = 0; i < s.length; i++) {
-    chr = s.charCodeAt(i);
-    // tslint:disable-next-line:no-bitwise
-    hash = ((hash << 5) - hash) + chr;
-    // tslint:disable-next-line:no-bitwise
-    hash |= 0; // Convert to 32bit integer
-  }
-  return hash;
-};
+function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for(let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = h << 13 | h >>> 19;
+    }
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    }
+}
 
 const nameToHSL = name => {
-  const hash = stringHash(name);
-  const h = hash % 365;
-  const s = hash % 100;
-  const l = 35;
+  let rng = xmur3(name);
+  const h = rng() % 365;
+  const s = rng() % 80 + 20;
+  const l = rng() % 45 + 10;
   return `hsl(${ h }, ${ s }%, ${ l }%)`;
 };
 
-let log_list = document.querySelectorAll('.log');
+let logList = document.querySelectorAll('.log');
 
-for (let i = 0; i < log_list.length; i++) {
-    const log = log_list[i];
+const nameHslMap = {};
+
+for (let i = 0; i < logList.length; i++) {
+    const log = logList[i];
     const speaker = log.querySelector(".speaker");
     if (speaker) {
-        log.style.color = nameToHSL(speaker.innerHTML);
+        nameHslMap[speaker.innerHTML] = nameToHSL(speaker.innerText);
+        log.style.color = nameToHSL(speaker.innerText);
     }
 }
+
+const characters = document.querySelectorAll(".entity-character");
+
+for (let i = 0; i < characters.length; i++) {
+    const character = characters[i];
+    if (character) {
+        character.style.color = nameToHSL(character.innerText);
+    }
+}
+
+console.log(nameHslMap);
 

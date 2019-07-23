@@ -110,7 +110,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .log {
-  margin: 0.4em 0;
+  margin: 0;
+  padding: 0.35em 0;
 
   .meta {
     color: lighten($text-color, 50%);
@@ -166,6 +167,14 @@ h1, h2, h3, h4, h5, h6 {
       background-color: lighten($main-color, 20%);
       border: 1px solid $line-color;
     }
+  }
+}
+
+.gm-log {
+  border-right: 0.5em solid lighten($main-color, 10%);
+
+  &:hover {
+    border-right-color: lighten($main-color, 15%);
   }
 }
 

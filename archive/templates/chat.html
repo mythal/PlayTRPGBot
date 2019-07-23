@@ -65,7 +65,7 @@
                     {% include "entities.html" with log=log.reply %}
                 </section>
             {% endif %}
-            <strong class="speaker">{{ log.temp_character_name|default:log.character_name }}</strong>
+            <strong class="speaker" title="{{ log.user_fullname }}">{{ log.temp_character_name|default:log.character_name }}</strong>
 
             {% if kind == 'NORMAL' or kind == 'ME' %}
                 {% include "entities.html" with log=log %}
