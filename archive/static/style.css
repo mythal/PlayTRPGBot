@@ -110,6 +110,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .log .speaker {
   color: #c4c4c4;
+  margin-right: 0.25em;
 }
 .log .speaker::before {
   content: "[";
