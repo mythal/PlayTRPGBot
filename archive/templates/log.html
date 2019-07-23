@@ -1,0 +1,44 @@
+{% load chat %}
+{% with kind=log.get_kind_display %}
+<section class="content kind-{{ kind | lower }}">
+{% spaceless %}
+<strong class="speaker" title="{{ log.user_fullname }}">{{ log.temp_character_name|default:log.character_name }}</strong>
+{% if kind == 'NORMAL' or kind == 'ME' or kind == 'ROLL' %}
+
+    {% for entity in log.entities %}
+        {% if entity.kind == 'span' %}
+            <span class="entity-span">{{ entity.value }}</span>
+        {% elif entity.kind == 'character' or entity.kind == 'me' %}
+            <strong class="entity-character" title="{{ entity.full_name }}">{{ entity.value }}</strong>
+        {% elif entity.kind == 'bold' %}
+            <strong class="entity-bold">{{ entity.value }}</strong>
+        {% elif entity.kind == 'code' %}
+            <code class="entity-code">{{ entity.value }}</code>
+        {% elif entity.kind == 'roll' %}
+            <span class="entity-roll">{{ entity.value }}</span>
+        {% elif entity.kind == 'coc-roll' %}
+            <span class="entity-coc-roll">
+                <span class="rolled">{{ entity.rolled }}</span>
+                <span class="level">{{ entity.level }}</span>
+                {% if entity.modifier_name %}
+                    <span class="modifier-name">{{ entity.modifier_name }}</span>
+                    <span class="modifier-list">{{ entity.rolled_list }}</span>
+                {% endif %}
+            </span>
+        {% elif entity.kind == 'loop-roll' %}
+            <span class="entity-loop-roll">
+                <span class="counter">{{ entity.rolled|counter_6 }}/{{ entity.rolled|length }}</span>
+                <span class="rolled">{{ entity.rolled }}</span>
+            </span>
+        {% else %}
+            <span class="entity-unknown">Unknown</span>
+        {% endif %}
+    {% endfor %}
+{% elif kind == 'HIDE_DICE' %}
+    <span class="hidden-roll">[Hided]</span>
+{% else %}
+    <span class="unknown-record">[Unknown]</span>
+{% endif %}
+{% endspaceless %}
+</section>
+{% endwith %}

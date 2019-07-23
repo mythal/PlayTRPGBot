@@ -135,13 +135,13 @@ h1, h2, h3, h4, h5, h6 {
 
   }
 
-  .speaker, .reply-to-speaker {
+  .speaker {
     color: lighten($text-color, 70%);
     &::before {
-      content: "(";
+      content: "[";
     }
     &::after {
-      content: ")";
+      content: "]";
     }
   }
 
@@ -172,7 +172,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .gm-log {
   padding-right: 0.25em;
-  border-right: 0.25em solid lighten($main-color, 10%);
+  border-right: 0.15em solid lighten($main-color, 10%);
 
   &:hover {
     border-right-color: lighten($main-color, 15%);
@@ -198,6 +198,13 @@ h1, h2, h3, h4, h5, h6 {
   .speaker::after {
     content: ' 🎲';
   }
+}
+
+.hidden-roll {
+  background-color: $text-color;
+  color: invert($text-color);
+  padding: 0.1em 0.25em;
+  font-family: $monospace;
 }
 
 .pagination {

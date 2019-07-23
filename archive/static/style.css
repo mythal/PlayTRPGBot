@@ -108,14 +108,14 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0 1em;
   border-left: 0.5em solid #0aa66b;
 }
-.log .speaker, .log .reply-to-speaker {
+.log .speaker {
   color: #c4c4c4;
 }
-.log .speaker::before, .log .reply-to-speaker::before {
-  content: "(";
+.log .speaker::before {
+  content: "[";
 }
-.log .speaker::after, .log .reply-to-speaker::after {
-  content: ")";
+.log .speaker::after {
+  content: "]";
 }
 .log .entity-character {
   margin: 0 0.15em;
@@ -139,7 +139,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .gm-log {
   padding-right: 0.25em;
-  border-right: 0.25em solid #0dd68a;
+  border-right: 0.15em solid #0dd68a;
 }
 .gm-log:hover {
   border-right-color: #0eee9a;
@@ -160,6 +160,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 .kind-roll .speaker::after {
   content: " 🎲";
+}
+
+.hidden-roll {
+  background-color: #111111;
+  color: #eeeeee;
+  padding: 0.1em 0.25em;
+  font-family: "Sarasa Mono SC", Iosevka, Menlo, Monaco, monospace;
 }
 
 .pagination {

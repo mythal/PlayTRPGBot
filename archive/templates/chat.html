@@ -52,53 +52,37 @@
     </header>
     {% for log in log_list %}
     {% cache TTL 'log' log.id log.modified %}
-    {% with kind=log.get_kind_display %}
-    <section class="log kind-{{ kind | lower }}{% if log.gm %} gm-log{% endif %}" id="message-{{ log.message_id }}">
+    <section class="log {% if log.gm %} gm-log{% endif %}" id="message-{{ log.message_id }}">
         {% if log.media %}<section class="media">
                 <a href="{{ log.media.url }}" class="photo"><img alt="Photo" src="{{ log.media.url }}"></a>
         </section>{% endif %}
-        <section class="content">
-            {% if log.reply %}
-                <section class="reply-to">
-                    <a href="#message-{{ log.reply.message_id }}" class="reply-to-link">Reply to</a>
-                    <strong class="reply-to-speaker">{{ log.reply.temp_character_name|default:log.reply.character_name }}</strong>
-                    {% include "entities.html" with log=log.reply %}
-                </section>
-            {% endif %}
-            <strong class="speaker" title="{{ log.user_fullname }}">{{ log.temp_character_name|default:log.character_name }}</strong>
-
-            {% if kind == 'NORMAL' or kind == 'ME' %}
-                {% include "entities.html" with log=log %}
-            {% elif kind == 'HIDE_DICE' %}
-                <span class="hidden-roll">[Hided]</span>
-            {% elif kind == 'ROLL' %}
-                {% include "entities.html" with log=log %}
-            {% else %}
-                <span class="unknown-record">[Unknown]</span>
-            {% endif %}
-        </section>
+        {% if log.reply %}
+            <section class="reply-to">
+                {% include "log.html" with log=log.reply %}
+            </section>
+        {% endif %}
+        {% include "log.html" with log=log %}
         <aside class="meta">
             <time class="date" datetime="{{ log.created|date:"c" }}">{{ log.created|date:'y-m-d H:i:s' }}</time>
             <span class="tags">{% for tag in log.tag.all %}<a class="tag" href="?tag={{ tag.id }}">#{{ tag.name }}</a>{% endfor %}</span>
         </aside>
     </section>
-    {% endwith %}
     {% endcache %}
     {% endfor %}
 <footer class="pagination">
-{% if log_list.has_previous %}
-    <a href="?page=1">&laquo; first</a>
-    <a href="?page={{ log_list.previous_page_number }}">&lsaquo; previous</a>
-{% endif %}
+    {% if log_list.has_previous %}
+        <a href="?page=1">&laquo; first</a>
+        <a href="?page={{ log_list.previous_page_number }}">&lsaquo; previous</a>
+    {% endif %}
 
-<span class="current">
-    Page {{ log_list.number }} of {{ log_list.paginator.num_pages }}.
-</span>
+    <span class="current">
+        Page {{ log_list.number }} of {{ log_list.paginator.num_pages }}.
+    </span>
 
-{% if log_list.has_next %}
-    <a href="?{% url_replace 'page' log_list.next_page_number %}">next &rsaquo;</a>
-    <a href="?{% url_replace 'page' log_list.paginator.num_pages %}">last &raquo;</a>
-{% endif %}
+    {% if log_list.has_next %}
+        <a href="?{% url_replace 'page' log_list.next_page_number %}">next &rsaquo;</a>
+        <a href="?{% url_replace 'page' log_list.paginator.num_pages %}">last &raquo;</a>
+    {% endif %}
 </footer>
 </article>
 <script src="{% static 'chat.js' %}"></script>
