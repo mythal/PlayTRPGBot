@@ -33,18 +33,20 @@ const nameToHSL = name => {
   return `hsl(${ h }, ${ s }%, ${ l }%)`;
 };
 
-let logList = document.querySelectorAll('.log');
 
-const nameHslMap = {};
-
-for (let i = 0; i < logList.length; i++) {
-    const log = logList[i];
-    const speaker = log.querySelector(".speaker");
-    if (speaker) {
-        nameHslMap[speaker.innerHTML] = nameToHSL(speaker.innerText);
-        log.style.color = nameToHSL(speaker.innerText);
+function logColorizer(logList) {
+    for (let i = 0; i < logList.length; i++) {
+        const log = logList[i];
+        const speaker = log.querySelector(".speaker, .reply-to-speaker");
+        if (speaker) {
+            log.style.color = nameToHSL(speaker.innerText);
+        }
     }
 }
+
+logColorizer(document.querySelectorAll('.log'));
+
+logColorizer(document.querySelectorAll('.reply-to'));
 
 const characters = document.querySelectorAll(".entity-character");
 
@@ -54,6 +56,3 @@ for (let i = 0; i < characters.length; i++) {
         character.style.color = nameToHSL(character.innerText);
     }
 }
-
-console.log(nameHslMap);
-

@@ -135,7 +135,7 @@ h1, h2, h3, h4, h5, h6 {
 
   }
 
-  .speaker {
+  .speaker, .reply-to-speaker {
     color: lighten($text-color, 70%);
     &::before {
       content: "(";
@@ -171,7 +171,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .gm-log {
-  border-right: 0.5em solid lighten($main-color, 10%);
+  padding-right: 0.25em;
+  border-right: 0.25em solid lighten($main-color, 10%);
 
   &:hover {
     border-right-color: lighten($main-color, 15%);
