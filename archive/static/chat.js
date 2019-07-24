@@ -36,7 +36,7 @@ const nameToHSL = name => {
   let rng = xmur3(name);
   const h = rng() % 365;
   const s = rng() % 80 + 20;
-  const l = rng() % 50 + 10;
+  const l = rng() % 20 + rng() % 20 + rng() % 20;
   const color = `hsl(${ h }, ${ s }%, ${ l }%)`;
   nameColorMap[name] = color;
   return color;
