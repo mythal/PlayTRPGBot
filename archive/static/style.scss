@@ -7,6 +7,10 @@ $main-color: #0aa66b;
 $line-color: #CCCCCC;
 $link-color: darken($main-color, 5%);
 
+* {
+  box-sizing: border-box;
+}
+
 html {
   font-family: $sans;
   font-size: 18px;
@@ -67,8 +71,21 @@ h1, h2, h3, h4, h5, h6 {
       display: none;
     }
     input {
-      height: 1.4rem;
+      height: 2rem;
       font-size: 1.2rem;
+    }
+
+    input[type="submit"] {
+      border: 1px solid $line-color;
+      background-color: lighten($main-color, 40%);
+
+      &:hover {
+        background-color: lighten($main-color, 20%);
+      }
+
+      &:active {
+        background-color: darken($main-color, 5%);
+      }
     }
   }
 

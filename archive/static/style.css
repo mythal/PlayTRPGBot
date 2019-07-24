@@ -1,4 +1,8 @@
 @charset "UTF-8";
+* {
+  box-sizing: border-box;
+}
+
 html {
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, "Hiragino Sans GB", "PingFang SC", "Heiti SC", "Microsoft YaHei UI", "Microsoft YaHei", "Source Han Sans", sans-serif;
   font-size: 18px;
@@ -54,8 +58,18 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 .tools .search input {
-  height: 1.4rem;
+  height: 2rem;
   font-size: 1.2rem;
+}
+.tools .search input[type=submit] {
+  border: 1px solid #CCCCCC;
+  background-color: #84f8cc;
+}
+.tools .search input[type=submit]:hover {
+  background-color: #24f2a4;
+}
+.tools .search input[type=submit]:active {
+  background-color: #098e5b;
 }
 .tools .export h2 {
   display: inline-block;
