@@ -31,7 +31,7 @@ a:visited {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: Baskerville, serif;
+  font-family: Baskerville, "Baskerville Old Face", Georgia, "Times New Roman", serif;
   font-weight: normal;
 }
 
@@ -123,7 +123,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .log .entity-roll, .log .entity-loop-roll, .log .entity-coc-roll {
   display: inline-block;
-  font-family: "Sarasa Mono SC", Iosevka, Menlo, Monaco, monospace;
+  font-family: "Sarasa Mono SC", Iosevka, Consolas, Menlo, Monaco, monospace;
   font-size: 0.9em;
   padding: 0.2em;
   margin: 0 0.2em;
@@ -167,7 +167,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #111111;
   color: #eeeeee;
   padding: 0.1em 0.25em;
-  font-family: "Sarasa Mono SC", Iosevka, Menlo, Monaco, monospace;
+  font-family: "Sarasa Mono SC", Iosevka, Consolas, Menlo, Monaco, monospace;
 }
 
 .pagination {
