@@ -8,14 +8,19 @@
 {% block header %}
 
 {% cache TTL 'chat-header' chat.id tag search reverse chat.modified %}
-<a class="back-index" href="{% url 'index' %}">Mythal Archives</a>
-<h1><a href="{% url 'chat' chat.id %}">{{ chat.title }}</a></h1>
-{% if chat.description %}
-    <section class="description">
-        {{ chat.description|linebreaks }}
-    </section>
-{% endif %}
-{% endcache %}
+    <a class="back-index" href="{% url 'index' %}">Mythal Archives</a>
+    <h1><a href="{% url 'chat' chat.id %}">{{ chat.title }}</a></h1>
+    {% if chat.description %}
+        <section class="description">
+            {{ chat.description|linebreaks }}
+        </section>
+    {% endif %}
+    {% endcache %}
+    {% if player %}
+        <nav class="player-bar">
+            Your character: <span class="character-name">{{ player.character_name }}</span>
+        </nav>
+    {% endif %}
 {% endblock %}
 
 {% block main %}

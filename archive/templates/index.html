@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
 {% load cache %}
 {% block title %}Mythal Archive{% endblock %}
-{% block header %}<h1>Mythal Archives</h1>{% endblock %}
+{% block header %}
+    <h1>Mythal Archives</h1>
+    {% if profile %}<p class="welcome">Welcome {{ profile.name }}. <a title="Logout" href="{% url "logout" %}">Logout</a></p>{% endif %}
+{% endblock %}
 {% block main %}
 <article>
     <p>Archives of @<a href="https://t.me/PlayTRPGBot">PlayTRPGBot</a>.</p>

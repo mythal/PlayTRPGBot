@@ -18,15 +18,16 @@ from .display import Text, get_by_user
 def set_dice_face(_bot: telegram.Bot, update, args):
     message = update.message
     assert isinstance(message, telegram.Message)
+    return handle_set_dice_face(message=message, text=' '.join(args))
+
+
+def handle_set_dice_face(message: telegram.Message, text: str):
     _ = partial(get_by_user, user=message.from_user)
     chat = get_chat(message.chat)
-    if len(args) != 1:
-        return error_message(message, _(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face))
     try:
-        face = int(args[0])
+        face = int(text.strip())
     except ValueError:
-        error_message(message, _(Text.FACE_ONLY_ALLOW_NUMBER))
-        return
+        return error_message(message, _(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face))
     chat.default_dice_face = face
     chat.save()
     delete_message(message.chat_id, message.message_id)

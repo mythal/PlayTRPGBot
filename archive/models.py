@@ -74,7 +74,7 @@ class Chat(models.Model):
 
 
 class Log(models.Model):
-    user_id = models.BigIntegerField('User ID')
+    user_id = models.BigIntegerField('Telegram User ID')
     message_id = models.BigIntegerField('Message ID', db_index=True)
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE, db_index=True)
     user_fullname = models.CharField('User Full Name', max_length=128, blank=True)
@@ -118,3 +118,10 @@ class Tag(models.Model):
 
     def query_log(self, reverse=False):
         return query_log(self.log_set, reverse)
+
+
+class Profile(models.Model):
+    telegram_id = models.BigIntegerField('Telegram User ID', db_index=True)
+    photo_url = models.URLField('Photo URL', null=True)
+    username = models.CharField(max_length=128, null=True)
+    name = models.CharField(max_length=256)

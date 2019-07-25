@@ -31,10 +31,25 @@ logging.basicConfig(format=const.LOGGER_FORMAT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def login_button():
+    button = telegram.InlineKeyboardButton('Login Log Archives')
+    button.login_url = {
+        'url': 'http://log.mythal.net/telegram-login/',
+        'request_write_access': True,
+    }
+    return telegram.InlineKeyboardMarkup([[
+        button,
+    ]])
+
+
 def start_command(_, update):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
+    return handle_start(message=message)
+
+
+def handle_start(message: telegram.Message, **_kwargs):
     _ = partial(get_by_user, user=message.from_user)
     if not is_group_chat(message.chat):
         send_message(message.chat_id, _(Text.START_TEXT), reply_to=message.message_id)
@@ -48,9 +63,13 @@ def start_command(_, update):
         error_message(message, _(Text.ALREADY_STARTED))
 
 
-def save(_, update):
+def save_command(_, update):
     message = update.message
     assert isinstance(message, telegram.Message)
+    return handle_save(message=message)
+
+
+def handle_save(message: telegram.Message, **_kwargs):
     _ = partial(get_by_user, user=message.from_user)
     if not is_group_chat(message.chat):
         return
@@ -64,10 +83,14 @@ def save(_, update):
         error_message(message, _(Text.ALREADY_SAVED))
 
 
-def bot_help(_, update):
+def help_command(_, update):
     """Send a message when the command /help is issued."""
-    send_text = get_by_user(Text.HELP_TEXT, update.message.from_user)
-    update.message.reply_text(send_text, parse_mode='HTML')
+    return handle_help(update.message)
+
+
+def handle_help(message: telegram.Message, **_kwargs):
+    send_text = get_by_user(Text.HELP_TEXT, message.from_user)
+    message.reply_text(send_text, parse_mode='HTML', reply_markup=login_button())
 
 
 def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
@@ -460,6 +483,12 @@ def handle_status(_bot: telegram.Bot, update):
         chat.save()
 
 
+def new_member(bot, update):
+    for member in update.message.new_chat_members:
+        if member.id == bot.id:
+            return handle_help(message=update.message)
+
+
 def set_password(_, update, args):
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -489,8 +518,8 @@ def run_bot():
 
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start_command))
-    dp.add_handler(CommandHandler("save", save))
-    dp.add_handler(CommandHandler("help", bot_help))
+    dp.add_handler(CommandHandler("save", save_command))
+    dp.add_handler(CommandHandler("help", help_command))
     dp.add_handler(CommandHandler('face', set_dice_face, pass_args=True))
     dp.add_handler(CommandHandler('name', set_name, pass_args=True))
     dp.add_handler(CommandHandler('round', start_round))
@@ -505,8 +534,9 @@ def run_bot():
         pass_job_queue=True,
         edited_updates=True,
     ))
+    dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, new_member))
     dp.add_handler(MessageHandler(Filters.status_update, handle_status))
-    updater.dispatcher.add_handler(CallbackQueryHandler(inline_callback))
+    dp.add_handler(CallbackQueryHandler(inline_callback))
     # log all errors
     dp.add_error_handler(handle_error)
 
