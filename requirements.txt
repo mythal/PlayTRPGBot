@@ -12,5 +12,4 @@ django-debug-toolbar
 django-filter>=2
 celery[msgpack,redis]
 djangorestframework
-django-filter
 django-rest-swagger

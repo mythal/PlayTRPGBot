@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('archive.urls')),
     path('game/', include('game.urls')),
+    path('', include('user.urls')),
     path('swagger', schema_view),
 
 ]

@@ -36,6 +36,7 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'archive.apps.ArchiveConfig',
     'game.apps.GameConfig',
+    'user.apps.UserConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

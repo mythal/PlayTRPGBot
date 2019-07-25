@@ -4,7 +4,7 @@ from rest_framework import serializers, viewsets, mixins
 from rest_framework.exceptions import PermissionDenied
 
 from .models import Variable, Player
-from archive.models import TelegramProfile
+from user.models import TelegramProfile
 
 
 class PlayerSerializer(serializers.HyperlinkedModelSerializer):
