@@ -7,9 +7,10 @@ uwsgi
 pypeg2
 faker
 django-redis
-graphene>=2.0
-graphene-django>=2.0
 django-cors-headers
 django-debug-toolbar
 django-filter>=2
 celery[msgpack,redis]
+djangorestframework
+django-filter
+django-rest-swagger

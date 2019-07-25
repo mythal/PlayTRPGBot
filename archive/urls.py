@@ -1,6 +1,10 @@
+from rest_framework import routers
 from django.urls import path
 
 from . import views
+
+router = routers.DefaultRouter()
+router.register(r'chat-api', views.ChatViewSet)
 
 urlpatterns = [
     path('', views.index, name='index'),
@@ -8,5 +12,6 @@ urlpatterns = [
     path('chat/<int:chat_id>/<str:_title>.<str:method>', views.export, name='export'),
     path('chat/<int:chat_id>/please_input_password', views.require_password, name='require_password'),
     path('telegram-login/', views.telegram_login, name='telegram_login'),
-    path('logout/', views.logout, name='logout'),
-]
+    path('logout/', views.logout_page, name='logout'),
+] + router.urls
+

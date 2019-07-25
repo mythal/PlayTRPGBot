@@ -9,29 +9,23 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
+from django.contrib.auth import login, logout
+from django.contrib.auth.models import User
+from rest_framework import serializers, viewsets, mixins
 
 from . import forms
 from .export import EXPORT_METHOD
-from .models import Chat, Tag, Profile
-from game.models import Player
+from .models import Chat, Tag, TelegramProfile
 
 
 CACHE_TTL = 3 * 24 * 60 * 60
-
-
-def get_profile(request) -> Optional[Profile]:
-    profile_id = request.session.get('profile_id', None)
-    if profile_id:
-        return Profile.objects.get(id=profile_id)
-    else:
-        return None
 
 
 def index(request):
     return render(request, 'index.html', dict(
         chats=Chat.objects.filter().order_by('-modified'),
         TTL=CACHE_TTL,
-        profile=get_profile(request),
+        profile=getattr(request.user, 'telegram', None),
     ))
 
 
@@ -47,11 +41,9 @@ def allow(session, chat_id):
 
 
 def chat_page(request, chat_id):
-    profile = get_profile(request)
+    from game.models import Player
+
     chat: Chat = get_object_or_404(Chat, id=chat_id)
-    player: Optional[Player] = None
-    if profile:
-        player = Player.objects.filter(chat_id=chat.chat_id, user_id=profile.telegram_id).first()
     tag_list = chat.query_tag()
     tag_id = request.GET.get('tag', None)
     reverse = request.GET.get('reverse', '0') != '0'
@@ -59,10 +51,15 @@ def chat_page(request, chat_id):
     page_number = int(request.GET.get('page', 1))
     tag: Optional[Tag] = None
 
+    player = None
+    telegram_profile: Optional[TelegramProfile] = getattr(request.user, 'telegram', None)
+    if telegram_profile:
+        player = Player.objects.filter(user_id=telegram_profile.telegram_id, chat_id=chat.chat_id).first()
+
     if tag_id:
         tag = get_object_or_404(Tag, id=tag_id, chat_id=chat_id)
 
-    if chat.password and not is_allow(request.session, chat_id):
+    if chat.password and not is_allow(request.session, chat_id) and not player:
         return redirect('require_password', chat_id=chat_id)
 
     log_set = chat.query_log(reverse=reverse)
@@ -135,17 +132,39 @@ def telegram_login(request):
         return HttpResponse('Login Fail: Wrong Data', status=401)
     elif time.time() - auth_date > 60 and not settings.DEBUG:
         return HttpResponse('Login Fail: Timeout', status=401)
-    default_profile = {
-        'telegram_id': int(telegram_id),
-        'photo_url': photo_url,
-        'username': username,
-        'name': "{} {}".format(first_name, last_name),
-    }
-    profile, _ = Profile.objects.get_or_create(default_profile, telegram_id=telegram_id)
-    request.session['profile_id'] = profile.id
+    profile = TelegramProfile.objects.filter(telegram_id=telegram_id).first()
+    if not profile:
+        user = User.objects.create_user('telegram-{}'.format(telegram_id))
+        profile = TelegramProfile(
+            user=user,
+            telegram_id=int(telegram_id),
+            photo_url=photo_url,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        profile.save()
+    else:
+        user = profile.user
+    logout(request)
+    login(request, user)
     return redirect('index')
 
 
-def logout(request):
-    del request.session['profile_id']
+def logout_page(request):
+    logout(request)
     return redirect('index')
+
+
+class ChatSerializers(serializers.HyperlinkedModelSerializer):
+
+    class Meta:
+        model = Chat
+        fields = ['id', 'chat_id', 'title']
+
+
+class ChatViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Chat.objects.all()
+    serializer_class = ChatSerializers
+    filterset_fields = ['chat_id', 'title']
+
