@@ -261,25 +261,29 @@ def handle_add_tag(bot: telegram.Bot, chat, message: telegram.Message, **_kwargs
 
 def handle_edit(chat, bot, message: telegram.Message, start: int, with_photo=None, **_kwargs):
     target = message.reply_to_message
+    assert isinstance(message.from_user, telegram.User)
+    user_id = message.from_user.id
 
     _ = partial(get_by_user, user=message.from_user)
 
     if not chat.recording:
         return error_message(message, _(Text.RECORD_NOT_FOUND))
-    elif not isinstance(target, telegram.Message):
-        return error_message(message, _(Text.NEED_REPLY))
-    elif target.from_user.id != bot.id:
-        return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
-    assert isinstance(message.from_user, telegram.User)
-    user_id = message.from_user.id
-    log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
-    if log is None:
-        error_message(message, _(Text.RECORD_NOT_FOUND))
-    elif log.user_id == user_id:
-        handle_say(chat, message, log.character_name, edit_log=log, with_photo=with_photo, start=start)
-        delete_message(message.chat_id, message.message_id)
+
+    if not isinstance(target, telegram.Message):
+        log = Log.objects.filter(chat=chat, user_id=user_id).order_by('-created').first()
+        if not log:
+            return error_message(message, _(Text.NEED_REPLY))
+    elif target.from_user.id == bot.id:
+        log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
+        if not log:
+            return error_message(message, _(Text.RECORD_NOT_FOUND))
     else:
-        error_message(message, _(Text.HAVE_NOT_PERMISSION))
+        return error_message(message, _(Text.NEED_REPLY_PLAYER_RECORD))
+
+    if log.user_id != user_id:
+        return error_message(message, _(Text.HAVE_NOT_PERMISSION))
+    handle_say(chat, message, log.character_name, edit_log=log, with_photo=with_photo, start=start)
+    delete_message(message.chat_id, message.message_id)
 
 
 def handle_lift(message: telegram.Message, chat: Chat, **_kwargs):
