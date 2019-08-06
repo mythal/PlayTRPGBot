@@ -26,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(os.environ.get('DEBUG', False))
+DEBUG = bool(os.getenv('DEBUG', False))
 
 ALLOWED_HOSTS = ['*']
 
@@ -67,9 +67,9 @@ REST_FRAMEWORK = {
 
 LOGOUT_URL = '/logout'
 
-REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
-REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
-REDIS_DB = os.environ.get('REDIS_DB', 0)
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = os.getenv('REDIS_PORT', 6379)
+REDIS_DB = os.getenv('REDIS_DB', 0)
 REDIS_URL = 'redis://{host}:{port}/{db}'.format(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
 
 CELERY_BROKER_URL = REDIS_URL
@@ -200,7 +200,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'data/media/')
 
 # Logging
 
-LOG_ROOT = 'data/log/'
+LOG_ROOT = os.path.join(BASE_DIR, 'data/log/')
 
 LOGGING = {
     'version': 1,
@@ -216,15 +216,26 @@ LOGGING = {
         },
     },
     'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
             'filename': os.path.join(LOG_ROOT, 'error.log'),
+            'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
             'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+        'bot': {
+            'handlers': ['console'],
             'level': 'ERROR',
             'propagate': True,
         },
@@ -234,3 +245,6 @@ LOGGING = {
 for path in [STATIC_ROOT, MEDIA_ROOT, LOG_ROOT]:
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+ARCHIVE_URL = os.getenv('ARCHIVE_URL', 'http://log.mythal.net')

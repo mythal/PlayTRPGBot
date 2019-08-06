@@ -1,6 +1,5 @@
 import datetime
 import logging
-import os
 import re
 from hashlib import sha256
 from functools import partial
@@ -8,6 +7,7 @@ from functools import partial
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from django.conf import settings
 
 from bot.say import handle_as_say, handle_say, get_tag
 from bot.system import Deletion
@@ -17,7 +17,6 @@ from .character_name import set_name, get_name
 from .round_counter import round_inline_callback, start_round, hide_round,\
     public_round, next_turn, handle_initiative
 from . import patterns
-from . import const
 from .display import Text, get_by_user, get
 from .system import is_group_chat, is_gm, get_chat, get_player_by_id
 from bot.tasks import send_message, delete_message, cancel_delete_message, after_edit_delete_previous_message, \
@@ -26,15 +25,13 @@ from bot.tasks import send_message, delete_message, cancel_delete_message, after
 from archive.models import Chat, Log
 from game.models import Player, Variable
 
-# Enable logging
-logging.basicConfig(format=const.LOGGER_FORMAT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def login_button():
     button = telegram.InlineKeyboardButton('Login Log Archives')
     button.login_url = {
-        'url': 'http://log.mythal.net/telegram-login/',
+        'url': '{}/telegram-login/'.format(settings.ARCHIVE_URL),
         'request_write_access': True,
     }
     return telegram.InlineKeyboardMarkup([[
@@ -511,7 +508,7 @@ def set_password(_, update, args):
 def run_bot():
     """Start the bot."""
     # Create the EventHandler and pass it your bot's token.
-    updater = Updater(const.TOKEN)
+    updater = Updater(settings.BOT_TOKEN)
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
@@ -541,12 +538,7 @@ def run_bot():
     dp.add_error_handler(handle_error)
 
     # Start the Bot
-    if const.BOT_WEBHOOK_URL is not None:
-        updater.start_webhook(listen='0.0.0.0', port=const.WEBHOOK_PORT, url_path=const.TOKEN)
-        url = os.path.join(const.BOT_WEBHOOK_URL, const.TOKEN)
-        updater.bot.set_webhook(url=url)
-    else:
-        updater.start_polling()
+    updater.start_polling()
 
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since

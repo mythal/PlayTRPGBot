@@ -11,11 +11,10 @@ from django.conf import settings
 from archive.models import Chat, Log
 
 from entities import Me, Bold, Character, Span, Entities, Entity
-from .const import TOKEN
 from .patterns import ME_REGEX, VARIABLE_REGEX
 from game.models import Player, Variable
 
-bot = Bot(TOKEN)
+bot = Bot(settings.BOT_TOKEN)
 redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
 
