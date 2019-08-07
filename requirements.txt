@@ -11,5 +11,6 @@ django-cors-headers
 django-debug-toolbar
 django-filter>=2
 celery[msgpack,redis]
-djangorestframework
-django-rest-swagger
+graphene>=2.0
+graphene-django>=2.0
+django-filter>=2

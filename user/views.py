@@ -7,7 +7,6 @@ from django.contrib.auth import logout, login
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import redirect
-from rest_framework import serializers
 
 from .models import TelegramProfile
 

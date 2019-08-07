@@ -44,26 +44,23 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    'rest_framework',
-    'rest_framework_swagger',
+    'graphene_django',
     'django_filters',
 ]
+
+
+GRAPHENE = {
+    'SCHEMA': 'schema.schema',
+}
 
 if DEBUG:
     INSTALLED_APPS.append('debug_toolbar')
     INSTALLED_APPS.append('corsheaders')
+    GRAPHENE['MIDDLEWARE'] = [
+        'graphene_django.debug.DjangoDebugMiddleware',
+    ]
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
-
-REST_FRAMEWORK = {
-    # Use Django's standard `django.contrib.auth` permissions,
-    # or allow read-only access for unauthenticated users.
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly'
-    ],
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
-}
 
 LOGOUT_URL = '/logout'
 
@@ -112,7 +109,6 @@ INTERNAL_IPS = ['127.0.0.1']
 if DEBUG:
     MIDDLEWARE = [
         'corsheaders.middleware.CorsMiddleware',
-        'django.middleware.common.CommonMiddleware',
         'debug_toolbar.middleware.DebugToolbarMiddleware',
     ] + MIDDLEWARE
 
@@ -215,32 +211,52 @@ LOGGING = {
             'style': '{',
         },
     },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        }
+    },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple'
+            'formatter': 'simple',
         },
-        'file': {
+        'debug_console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'filters': ['require_debug_true'],
+        },
+        'django_error': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': os.path.join(LOG_ROOT, 'error.log'),
+            'filename': os.path.join(LOG_ROOT, 'django_error.log'),
+            'formatter': 'verbose',
+        },
+        'bot_error': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(LOG_ROOT, 'bot_error.log'),
             'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],
-            'level': 'ERROR',
+            'handlers': ['django_error', 'console'],
             'propagate': True,
         },
+        'django.db.backends': {
+            'level': 'DEBUG',
+            'handlers': ['debug_console'],
+        },
         'bot': {
-            'handlers': ['console'],
+            'handlers': ['console', 'bot_error'],
             'level': 'INFO',
             'propagate': True,
         },
         'telegram': {
-            'handlers': ['console'],
+            'handlers': ['console', 'bot_error'],
             'level': 'INFO',
             'propagate': True,
         },

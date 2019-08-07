@@ -16,19 +16,16 @@ Including another URLconf
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from rest_framework_swagger.views import get_swagger_view
+from graphene_django.views import GraphQLView
 
 from play_trpg import settings
 
-schema_view = get_swagger_view(title='Mythal API')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('archive.urls')),
-    path('game/', include('game.urls')),
     path('', include('user.urls')),
-    path('swagger', schema_view),
-
+    path('graphql', GraphQLView.as_view(graphiql=True)),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

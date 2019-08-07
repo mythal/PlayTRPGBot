@@ -5,7 +5,6 @@ from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
-from rest_framework import serializers, viewsets, mixins
 
 from . import forms
 from .export import EXPORT_METHOD
@@ -108,16 +107,4 @@ def export(request, chat_id, _title: str, method: str):
         return HttpResponseBadRequest('Bad Request')
     return EXPORT_METHOD[method](filename, current)
 
-
-class ChatSerializers(serializers.HyperlinkedModelSerializer):
-
-    class Meta:
-        model = Chat
-        fields = ['id', 'chat_id', 'title']
-
-
-class ChatViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
-    queryset = Chat.objects.all()
-    serializer_class = ChatSerializers
-    filterset_fields = ['chat_id', 'title']
 
