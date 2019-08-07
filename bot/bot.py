@@ -284,7 +284,6 @@ def handle_edit(chat, bot, message: telegram.Message, start: int, with_photo=Non
     if log.user_id != user_id:
         return error_message(message, _(Text.HAVE_NOT_PERMISSION))
     handle_say(chat, message, log.character_name, edit_log=log, with_photo=with_photo, start=start)
-    delete_message(message.chat_id, message.message_id)
 
 
 def handle_lift(message: telegram.Message, chat: Chat, **_kwargs):
