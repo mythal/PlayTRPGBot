@@ -178,21 +178,22 @@ def handle_delete(
         reply_markup = delete_reply_markup(message.from_user.language_code)
         deletion = Deletion(chat_id=message.chat_id, user_id=message.from_user.id, variable_id_list=variable_id_list)
     # delete message
-    elif isinstance(target, telegram.Message):
+    else:
         user_id = message.from_user.id
-        log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
+        if isinstance(target, telegram.Message):
+            log = Log.objects.filter(chat=chat, message_id=target.message_id).first()
+        else:
+            log = Log.objects.filter(chat=chat, user_id=user_id).order_by('-created').first()
         if log is None:
             error_message(message, get_by_user(Text.RECORD_NOT_FOUND, message.from_user))
             return
         elif log.user_id != user_id and not is_gm(message.chat_id, user_id):
             error_message(message, get_by_user(Text.HAVE_NOT_PERMISSION, message.from_user))
             return
-        check_text = _(Text.DELETE_CHECK) + '\n\n{}'.format(target.caption_html or target.text_html)
+        character_name = "<b>{}</b>".format(log.temp_character_name or log.character_name)
+        check_text = _(Text.DELETE_CHECK) + '\n\n[{}] {}'.format(character_name, log.content)
         reply_markup = delete_reply_markup(message.from_user.language_code)
-        deletion = Deletion(message.chat_id, message.from_user.id, message_list=[target.message_id])
-    else:
-        error_message(message, get_by_user(Text.DELETE_USAGE, message.from_user))
-        return
+        deletion = Deletion(message.chat_id, message.from_user.id, message_list=[log.message_id])
     delete_message(message.chat_id, message.message_id)
     sent = message.chat.send_message(check_text, parse_mode='HTML', reply_markup=reply_markup)
     deletion.set(sent.message_id)

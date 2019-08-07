@@ -236,7 +236,12 @@ LOGGING = {
         },
         'bot': {
             'handlers': ['console'],
-            'level': 'ERROR',
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'telegram': {
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': True,
         },
     },
