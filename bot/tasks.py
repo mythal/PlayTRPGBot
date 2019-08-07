@@ -1,5 +1,6 @@
 import io
 import uuid
+import logging
 from functools import partial
 
 import telegram
@@ -10,6 +11,9 @@ from bot.display import get, Text, get_by_user
 from bot.system import bot, redis
 from game.models import Round
 from play_trpg.celery import app
+
+
+logger = logging.getLogger(__name__)
 
 
 @app.task
@@ -42,7 +46,10 @@ def delete_message_task(chat_id, message_id):
 
 @app.task
 def send_message_task(chat_id, text, reply_to=None, parse_mode='HTML', delete_after=None):
-    sent = bot.send_message(chat_id, text, parse_mode, disable_web_page_preview=True, reply_to_message_id=reply_to)
+    try:
+        sent = bot.send_message(chat_id, text, parse_mode, disable_web_page_preview=True, reply_to_message_id=reply_to)
+    except telegram.error.TelegramError:
+        logger.exception('Error on send message')
     if delete_after and delete_after > 0:
         delete_message(chat_id, sent.message_id, delete_after)
 
