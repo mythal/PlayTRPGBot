@@ -161,7 +161,7 @@ def delete_message(chat_id, message_id, when=0):
     key = deletion_task_key(chat_id, message_id)
     task_id = cache.get(key)
     if task_id:
-        app.control.revoke(task_id.decode())
+        app.control.revoke(task_id)
     if when > 0:
         task = delete_message_task.apply_async((chat_id, message_id), countdown=when)
         cache.set(key, task.id)
@@ -174,7 +174,7 @@ def cancel_delete_message(chat_id, message_id):
     task_id = cache.get(key)
     if not task_id:
         return
-    app.control.revoke(task_id.decode())
+    app.control.revoke(task_id)
     cache.delete(key)
 
 
