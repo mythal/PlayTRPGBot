@@ -5,10 +5,11 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, TelegramError
+from django.core.cache import cache
 
 from archive.models import Log
 from bot.display import get, Text, get_by_user
-from bot.system import bot, redis
+from bot.system import bot
 from game.models import Round
 from play_trpg.celery import app
 
@@ -41,7 +42,7 @@ def delete_message_task(chat_id, message_id):
         bot.delete_message(chat_id, message_id)
     except telegram.error.BadRequest:
         pass
-    redis.delete(deletion_task_key(chat_id, message_id))
+    cache.delete(deletion_task_key(chat_id, message_id))
 
 
 @app.task
@@ -50,6 +51,7 @@ def send_message_task(chat_id, text, reply_to=None, parse_mode='HTML', delete_af
         sent = bot.send_message(chat_id, text, parse_mode, disable_web_page_preview=True, reply_to_message_id=reply_to)
     except telegram.error.TelegramError:
         logger.exception('Error on send message')
+        return
     if delete_after and delete_after > 0:
         delete_message(chat_id, sent.message_id, delete_after)
 
@@ -157,23 +159,23 @@ def deletion_task_key(chat_id, message_id):
 
 def delete_message(chat_id, message_id, when=0):
     key = deletion_task_key(chat_id, message_id)
-    task_id = redis.get(key)
+    task_id = cache.get(key)
     if task_id:
         app.control.revoke(task_id.decode())
     if when > 0:
         task = delete_message_task.apply_async((chat_id, message_id), countdown=when)
-        redis.set(key, task.id)
+        cache.set(key, task.id)
     else:
         delete_message_task.delay(chat_id, message_id)
 
 
 def cancel_delete_message(chat_id, message_id):
     key = deletion_task_key(chat_id, message_id)
-    task_id = redis.get(key)
+    task_id = cache.get(key)
     if not task_id:
         return
     app.control.revoke(task_id.decode())
-    redis.delete(key)
+    cache.delete(key)
 
 
 def after_edit_delete_previous_message(log_id):

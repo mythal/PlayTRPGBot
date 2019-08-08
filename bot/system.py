@@ -1,12 +1,11 @@
-import pickle
 import re
 from typing import Optional, List
 from uuid import uuid4
 
 import telegram
-from redis import Redis
 from telegram import Bot
 from django.conf import settings
+from django.core.cache import cache
 
 from archive.models import Chat, Log
 
@@ -15,7 +14,6 @@ from .patterns import ME_REGEX, VARIABLE_REGEX
 from game.models import Player, Variable
 
 bot = Bot(settings.BOT_TOKEN)
-redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
 
 class NotGm(Exception):
@@ -198,9 +196,7 @@ class HideRoll:
         return 'hide_roll:{}'.format(self.id)
 
     def set(self):
-        payload = pickle.dumps(self)
-        key = self.key()
-        redis.set(key, payload)
+        cache.set(self.key(), self)
 
     @property
     def text(self) -> str:
@@ -208,10 +204,7 @@ class HideRoll:
 
     @staticmethod
     def get(key) -> Optional['HideRoll']:
-        payload = redis.get(key)
-        if not payload:
-            return None
-        return pickle.loads(payload)
+        return cache.get(key)
 
 
 class Deletion:
@@ -229,16 +222,11 @@ class Deletion:
 
     @staticmethod
     def get(chat_id, message_id) -> Optional['Deletion']:
-        payload = redis.get(Deletion.key(chat_id, message_id))
-        if not payload:
-            return None
-        return pickle.loads(payload)
+        return cache.get(Deletion.key(chat_id, message_id))
 
     def set(self, message_id):
         key = Deletion.key(self.chat_id, message_id)
-        payload = pickle.dumps(self)
-        redis.set(key, payload)
-        redis.expire(key, self.expire_time)
+        cache.set(key, self, self.expire_time)
 
     def do(self):
         for message_id in self.message_list:
