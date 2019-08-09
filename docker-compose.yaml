@@ -17,6 +17,8 @@ services:
     volumes:
       - ./data/db:/var/lib/postgresql/data
     restart: always
+    environment:
+      POSTGRES_DB: mythal
     env_file:
       - .env
   redis:
@@ -33,9 +35,21 @@ services:
       - web
       - bot
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/bot.conf:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/archive.conf:ro
       - ./data/static:/data/static:ro
       - ./data/media:/data/media:ro
+      - ./data/web:/data/web:ro
+  front_end:
+    image: node
+    volumes:
+      - ./:/code
+    working_dir: /code/data/web
+    command:
+      - /bin/bash
+      - -c
+      - |
+        yarn install
+        yarn build
   bot:
     build: .
     image: quanbrew/play_trpg_bot

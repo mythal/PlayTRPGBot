@@ -156,5 +156,9 @@ class Query(graphene.ObjectType):
         return game.Player.objects.filter(id=player_id).first()
 
 
-schema = graphene.Schema(query=Query)
+class Mutation(graphene.ObjectType):
+    variable = VariableMutation.Field()
+
+
+schema = graphene.Schema(query=Query, mutation=Mutation)
 

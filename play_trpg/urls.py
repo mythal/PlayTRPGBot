@@ -17,15 +17,18 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from graphene_django.views import GraphQLView
+from django.views.decorators.csrf import csrf_exempt
 
 from play_trpg import settings
 
+graphql = GraphQLView.as_view(graphiql=True)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('archive.urls')),
     path('', include('user.urls')),
-    path('graphql', GraphQLView.as_view(graphiql=True)),
+    # Bypass CSRF https://github.com/graphql-python/graphene-django/issues/61
+    path('graphql', csrf_exempt(graphql)),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

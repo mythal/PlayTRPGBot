@@ -48,17 +48,20 @@ INSTALLED_APPS = [
     'django_filters',
 ]
 
+if DEBUG:
+    INSTALLED_APPS.append('debug_toolbar')
+    INSTALLED_APPS.append('corsheaders')
+
 
 GRAPHENE = {
     'SCHEMA': 'schema.schema',
 }
 
 if DEBUG:
-    INSTALLED_APPS.append('debug_toolbar')
-    INSTALLED_APPS.append('corsheaders')
     GRAPHENE['MIDDLEWARE'] = [
         'graphene_django.debug.DjangoDebugMiddleware',
     ]
+
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
 
@@ -108,12 +111,14 @@ INTERNAL_IPS = ['127.0.0.1']
 
 if DEBUG:
     MIDDLEWARE = [
-        'corsheaders.middleware.CorsMiddleware',
         'debug_toolbar.middleware.DebugToolbarMiddleware',
+        'corsheaders.middleware.CorsMiddleware',
     ] + MIDDLEWARE
 
 CORS_ORIGIN_ALLOW_ALL = DEBUG
-
+CORS_ALLOW_CREDENTIALS = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 ROOT_URLCONF = 'play_trpg.urls'
 
 TEMPLATES = [
