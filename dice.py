@@ -65,7 +65,7 @@ class Dice(Symbol):
             counter = 1
         try:
             face = int(match[1])
-        except ValueError:
+        except:
             face = env.face
 
         if face == 0 or counter == 0:
