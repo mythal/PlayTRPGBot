@@ -13,7 +13,7 @@ services:
     environment:
       - PYTHONPATH=/code
   db:
-    image: postgres
+    image: postgres:11
     volumes:
       - ./data/db:/var/lib/postgresql/data
     restart: always
