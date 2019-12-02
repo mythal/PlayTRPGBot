@@ -22,7 +22,7 @@ def set_dice_face(update, context: CallbackContext):
     return handle_set_dice_face(message=message, text=' '.join(context.args))
 
 
-def handle_set_dice_face(message: telegram.Message, text: str):
+def handle_set_dice_face(message: telegram.Message, text: str, **_kwargs):
     _ = partial(get_by_user, user=message.from_user)
     chat = get_chat(message.chat)
     try:

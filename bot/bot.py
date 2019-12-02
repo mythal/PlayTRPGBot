@@ -12,13 +12,14 @@ from django.conf import settings
 from bot.say import handle_as_say, handle_say, get_tag
 from bot.system import Deletion
 from bot.variable import handle_list_variables, handle_variable_assign, handle_clear_variables
-from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback
+from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback, \
+    handle_set_dice_face
 from .character_name import set_name, get_name
 from .round_counter import round_inline_callback, start_round, hide_round,\
     public_round, next_turn, handle_initiative
 from . import patterns
 from .display import Text, get_by_user, get
-from .system import is_group_chat, is_gm, get_chat, get_player_by_id
+from .system import Context, is_group_chat, is_gm, get_chat, get_player_by_id
 from bot.tasks import send_message, delete_message, cancel_delete_message, after_edit_delete_previous_message, \
     error_message
 
@@ -309,6 +310,10 @@ def handle_lift(message: telegram.Message, chat: Chat, **_kwargs):
 
 
 message_handlers = [
+    (re.compile(r'^[.。](start)\b'), handle_start),
+    (re.compile(r'^[.。](save)\b'), handle_save),
+    (re.compile(r'^[.。](help)\b'), handle_help),
+    (re.compile(r'^[.。](face)\s+'), handle_set_dice_face),
     (re.compile(r'^[.。[【](rh?)\b'), handle_normal_roll),
     (re.compile(r'^[.。[【](hd)\b'), handle_normal_roll),
     (re.compile(r'^[.。[【](loh?)\b'), handle_loop_roll),
@@ -355,7 +360,7 @@ def is_start_gm_mode(text: str) -> bool:
 
 def is_finish_gm_mode(text: str) -> bool:
     text = text.rstrip()
-    return text == ']' or text == '】'
+    return len(text) > 0 and (text[-1] == ']' or text[-1] == '】')
 
 
 def is_ellipsis(text: str) -> bool:
@@ -457,6 +462,8 @@ def handle_message(update: telegram.Update, context: CallbackContext):
             with_photo=with_photo,
             language_code=language_code,
             edit_log=edit_log,
+            context=Context(bot, chat, player, command, name, start, rest, message,
+                            context.job_queue, language_code, with_photo, edit_log)
         )
         return
     handle_say(chat, message, name, edit_log=edit_log, with_photo=with_photo, start=1)
@@ -475,7 +482,7 @@ def handle_error(update, context: CallbackContext):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
-def handle_status(update, context: CallbackContext):
+def handle_status(update, _context: CallbackContext):
     assert isinstance(update.message, telegram.Message)
     message = update.message
 

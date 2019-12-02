@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import telegram
 from telegram import Bot
+from telegram.ext import JobQueue
 from django.conf import settings
 from django.core.cache import cache
 
@@ -14,6 +15,24 @@ from .patterns import ME_REGEX, VARIABLE_REGEX
 from game.models import Player, Variable
 
 bot = Bot(settings.BOT_TOKEN)
+
+
+class Context:
+    def __init__(self, bot_: telegram.Bot, chat: Chat, player: Player, command: str, name: str, start: int,
+                 text: str, message: telegram.Message, job_queue: JobQueue, language_code: str,
+                 with_photo: Optional[telegram.PhotoSize], edit_log: Optional[Log]):
+        self.bot = bot_
+        self.chat = chat
+        self.player = player
+        self.command = command
+        self.name = name
+        self.start = start
+        self.text = text
+        self.message = message
+        self.job_queue = job_queue
+        self.language_code = language_code
+        self.with_photo = with_photo
+        self.edit_log = edit_log
 
 
 class NotGm(Exception):
