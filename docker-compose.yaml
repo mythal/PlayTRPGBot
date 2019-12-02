@@ -39,17 +39,6 @@ services:
       - ./data/static:/data/static:ro
       - ./data/media:/data/media:ro
       - ./data/web:/data/web:ro
-  front_end:
-    image: node
-    volumes:
-      - ./:/code
-    working_dir: /code/data/web
-    command:
-      - /bin/bash
-      - -c
-      - |
-        yarn install
-        yarn build
   bot:
     build: .
     image: quanbrew/play_trpg_bot
