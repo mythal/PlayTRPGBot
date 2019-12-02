@@ -4,6 +4,7 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackContext
 
 import dice
 from entities import RollResult, Span, CocResult, LoopResult, Entities
@@ -15,10 +16,10 @@ from bot.tasks import send_message, delete_message, error_message
 from .display import Text, get_by_user
 
 
-def set_dice_face(_bot: telegram.Bot, update, args):
+def set_dice_face(update, context: CallbackContext):
     message = update.message
     assert isinstance(message, telegram.Message)
-    return handle_set_dice_face(message=message, text=' '.join(args))
+    return handle_set_dice_face(message=message, text=' '.join(context.args))
 
 
 def handle_set_dice_face(message: telegram.Message, text: str):

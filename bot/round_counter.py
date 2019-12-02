@@ -87,7 +87,7 @@ def update_round_message(game_round: Round, language_code, refresh=False):
     update_round_message_task.delay(game_round.chat_id, language_code, refresh)
 
 
-def start_round(_bot: telegram.Bot, update: telegram.Update):
+def start_round(update: telegram.Update, _context):
     message: telegram.Message = update.message
     assert isinstance(message, telegram.Message)
     _ = partial(get_by_user, user=message.from_user)
@@ -118,7 +118,7 @@ def get_round(update: telegram.Update) -> Optional[Round]:
     return game_round
 
 
-def hide_round(_bot: telegram.Bot, update: telegram.Update):
+def hide_round(update: telegram.Update, _context):
     game_round = get_round(update)
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -137,7 +137,7 @@ def hide_round(_bot: telegram.Bot, update: telegram.Update):
     delete_message(message.chat_id, message.message_id)
 
 
-def public_round(_bot: telegram.Bot, update: telegram.Update):
+def public_round(update: telegram.Update, _context):
     message: telegram.Message = update.message
     game_round = get_round(update)
     language_code = get_language(update.message.from_user)
@@ -152,7 +152,7 @@ def public_round(_bot: telegram.Bot, update: telegram.Update):
     delete_message(message.chat_id, message.message_id)
 
 
-def next_turn(_bot: telegram.Bot, update: telegram.Update):
+def next_turn(update: telegram.Update, _context):
     game_round = get_round(update)
     if not game_round:
         return

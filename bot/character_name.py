@@ -2,6 +2,7 @@ from functools import partial
 from typing import Optional
 
 import telegram
+from telegram.ext import CallbackContext
 
 from bot.tasks import send_message, delete_message, error_message
 from .round_counter import create_player
@@ -22,7 +23,9 @@ def get_temp_name(chat_id, user_id):
         return player.temp_character_name or ''
 
 
-def set_name(bot: telegram.Bot, update: telegram.Update, args):
+def set_name(update: telegram.Update, context: CallbackContext):
+    bot = context
+    args = context.args
     message = update.message
     assert isinstance(message, telegram.Message)
 

@@ -6,7 +6,7 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
 from django.conf import settings
 
 from bot.say import handle_as_say, handle_say, get_tag
@@ -39,7 +39,7 @@ def login_button():
     ]])
 
 
-def start_command(_, update):
+def start_command(update, _context: CallbackContext):
     """Send a message when the command /start is issued."""
     message = update.message
     assert isinstance(message, telegram.Message)
@@ -60,7 +60,7 @@ def handle_start(message: telegram.Message, **_kwargs):
         error_message(message, _(Text.ALREADY_STARTED))
 
 
-def save_command(_, update):
+def save_command(update, _context: CallbackContext):
     message = update.message
     assert isinstance(message, telegram.Message)
     return handle_save(message=message)
@@ -80,7 +80,7 @@ def handle_save(message: telegram.Message, **_kwargs):
         error_message(message, _(Text.ALREADY_SAVED))
 
 
-def help_command(_, update):
+def help_command(update, _context: CallbackContext):
     """Send a message when the command /help is issued."""
     return handle_help(update.message)
 
@@ -367,7 +367,8 @@ def is_command(text: str) -> bool:
     return text.startswith(('.', '。'))
 
 
-def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
+def handle_message(update: telegram.Update, context: CallbackContext):
+    bot = context .bot
     message: telegram.Message = update.message
 
     edit_log = None
@@ -452,7 +453,7 @@ def handle_message(bot: telegram.Bot, update: telegram.Update, job_queue):
             name=name,
             text=rest,
             message=message,
-            job_queue=job_queue,
+            job_queue=context.job_queue,
             with_photo=with_photo,
             language_code=language_code,
             edit_log=edit_log,
@@ -469,12 +470,12 @@ def get_maximum_photo(message: telegram.Message):
     return photo_size_list[-1]
 
 
-def handle_error(_, update, bot_error):
+def handle_error(update, context: CallbackContext):
     """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, bot_error)
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
-def handle_status(_bot: telegram.Bot, update):
+def handle_status(update, context: CallbackContext):
     assert isinstance(update.message, telegram.Message)
     message = update.message
 
@@ -484,16 +485,16 @@ def handle_status(_bot: telegram.Bot, update):
         chat.save()
 
 
-def new_member(bot, update):
+def new_member(update, context: CallbackContext):
     for member in update.message.new_chat_members:
-        if member.id == bot.id:
+        if member.id == context.bot.id:
             return handle_help(message=update.message)
 
 
-def set_password(_, update, args):
+def set_password(update, context: CallbackContext):
     message = update.message
     assert isinstance(message, telegram.Message)
-
+    args = context.args
     _ = partial(get_by_user, user=message.from_user)
 
     if len(args) > 1:
@@ -512,7 +513,7 @@ def set_password(_, update, args):
 def run_bot():
     """Start the bot."""
     # Create the EventHandler and pass it your bot's token.
-    updater = Updater(settings.BOT_TOKEN)
+    updater = Updater(settings.BOT_TOKEN, use_context=True)
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
@@ -531,9 +532,7 @@ def run_bot():
     dp.add_handler(MessageHandler(
         Filters.text | Filters.photo | Filters.command,
         handle_message,
-        channel_post_updates=False,
         pass_job_queue=True,
-        edited_updates=True,
     ))
     dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, new_member))
     dp.add_handler(MessageHandler(Filters.status_update, handle_status))
