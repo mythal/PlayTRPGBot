@@ -91,7 +91,7 @@ def handle_help(message: telegram.Message, **_kwargs):
     message.reply_text(send_text, parse_mode='HTML', reply_markup=login_button())
 
 
-def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
+def handle_delete_callback(query: telegram.CallbackQuery, context: CallbackContext):
     def _(t: Text):
         return get_by_user(t, user=query.from_user)
     message = query.message
@@ -112,7 +112,7 @@ def handle_delete_callback(_bot: telegram.Bot, query: telegram.CallbackQuery):
         query.answer(_(Text.DELETED))
 
 
-def inline_callback(bot, update):
+def inline_callback(update, context: CallbackContext):
     query = update.callback_query
     assert isinstance(query, telegram.CallbackQuery)
     data = query.data or ''
@@ -122,7 +122,7 @@ def inline_callback(bot, update):
     elif data.startswith('hide_roll'):
         hide_roll_callback(bot, update)
     elif data.startswith('delete'):
-        handle_delete_callback(bot, query)
+        handle_delete_callback(query, context)
     else:
         query.answer(show_alert=True, text=get_by_user(Text.UNKNOWN_COMMAND, query.from_user))
 
@@ -545,7 +545,7 @@ def run_bot():
     dp.add_handler(MessageHandler(Filters.status_update, handle_status))
     dp.add_handler(CallbackQueryHandler(inline_callback))
     # log all errors
-    dp.add_error_handler(handle_error)
+    # dp.add_error_handler(handle_error)
 
     # Start the Bot
     updater.start_polling()
