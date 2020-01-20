@@ -114,6 +114,7 @@ def handle_delete_callback(query: telegram.CallbackQuery, context: CallbackConte
 
 def inline_callback(update, context: CallbackContext):
     query = update.callback_query
+    bot = context.bot
     assert isinstance(query, telegram.CallbackQuery)
     data = query.data or ''
     gm = is_gm(query.message.chat_id, query.from_user.id)
