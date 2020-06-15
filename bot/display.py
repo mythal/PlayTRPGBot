@@ -7,56 +7,50 @@ GM_SYMBOL = '✧'
 
 HELP_ZH_HANS = '''
 我是用来帮助在 Telegram 中玩桌面角色扮演游戏而诞生的。
+要开始使用，请给我管理员权限。
+
 所有以「.」或「。」开头的消息将被我处理。<b>注意我会记录这些消息在数据库内！</b>
-要开始使用，请给我管理员权限，<a href="https://wiki.mythal.net/PlayTRPGBot">详细使用步骤请参阅这里</a>。
-开始前需要输入 <code>/name 你的角色名</code>
-
-<b>基本指令</b>
-
-<code>/name [角色名]</code> - 设置角色名
-<code>.[...发言...]</code> - 以 <code>.</code>为开头的消息视作角色发言
-<code>.[...某些内容...] .me [...某些内容...]</code> - .me 会替换成角色名，用于描述角色动作和行为
-<code>.del</code> - 删掉所回复的消息
-<code>.edit ...</code> - 回复自己的一条消息，修改这条
-<code>.r XdY [...描述...]</code> - 投掷骰子
-<code>/face [面数]</code>- 设置默认骰子面数（默认20面）
-
-/save - 停止记录
-/start - 重新开始记录
-
 为了输入方便，所有命令开头的 <code>.</code> 都可以用 <code>。</code> 代替
+
+<b>常用指令</b>
+
 还有很多功能如战斗轮指示器、临时角色切换等，<a href="https://wiki.mythal.net/PlayTRPGBot">点击这里查看详细指令介绍</a>
-<a href="https://archive.paotuan.space">在这里可以查看记录下的日志</a>
+
+<code>/name [角色名]</code> - 开始前需要设置角色名
+<code>.[...发言...]</code> - 以 <code>.</code>为开头的消息视作角色发言
+<code>.[...某些内容...] @ [...某些内容...]</code> - @ 会替换成角色名，用于描述角色动作和行为
+<code>.r XdY [...描述...]</code> - 投掷骰子
+/save - 停止记录
+/start - 开始记录
+
+<a href="https://log.mythal.net/">在这里可以查看记录下的日志</a>
 '''
 
 HELP_ZH_HANT = '''
 我是用來幫助在 Telegram 中玩桌面角色扮演遊戲而誕生的。
-所有以「.」或「。」開頭的消息將被我處理。<b>注意我會記錄這些消息在數據庫內！</b>
-要開始使用，請給我管理員權限，<a href="https://wiki.mythal.net/PlayTRPGBot">詳細使用步驟請參閱這裏</a>。
-開始前需要輸入 <code>/name 你的角色名</code>
+要開始使用，請給我管理員權限。
 
-<b>基本指令</b>
+所有以「.」或「。」開頭的消息將被我處理。 <b>注意我會記錄這些消息在數據庫內！ </b>
+為了輸入方便，所有命令開頭的 <code>.</code> 都可以用 <code>。 </code> 代替
 
-<code>/name [角色名]</code> - 設置角色名
-<code>.[...發言...]</code> - 以 <code>.</code>爲開頭的消息視作角色發言
-<code>.[...某些內容...] .me [...某些內容...]</code> - .me 會替換成角色名，用於描述角色動作和行爲
-<code>.del</code> - 刪掉所回覆的消息
-<code>.edit ...</code> - 回覆自己的一條消息，修改這條
+<b>常用指令</b>
+
+還有很多功能如戰鬥輪指示器、臨時角色切換等，<a href="https://wiki.mythal.net/PlayTRPGBot">點擊這裡查看詳細指令介紹</a>
+
+<code>/name [角色名]</code> - 開始前需要設置角色名
+<code>.[...發言...]</code> - 以 <code>.</code>為開頭的消息視作角色發言
+<code>.[...某些內容...] @ [...某些內容...]</code> - @ 會替換成角色名，用於描述角色動作和行為
 <code>.r XdY [...描述...]</code> - 投擲骰子
-<code>/face [面數]</code>- 設置默認骰子面數（默認20面）
-
 /save - 停止記錄
-/start - 重新開始記錄
+/start - 開始記錄
 
-爲了輸入方便，所有命令開頭的 <code>.</code> 都可以用 <code>。</code> 代替
-還有很多功能如戰鬥輪指示器、臨時角色切換等，<a href="https://wiki.mythal.net/PlayTRPGBot">點擊這裏查看詳細指令介紹</a>
-<a href="https://archive.paotuan.space">在這裏可以查看記錄下的日誌</a>
+<a href="https://log.mythal.net/">在這裡可以查看記錄下的日誌</a>
 '''
 
 START_ZH_HANS = '''
-我是用来帮助在 Telegram 中<a href="http://wiki.mythal.net/TRPG">玩桌面角色扮演游戏</a>而诞生的
+我是用来帮助在 Telegram 中<a href="http://wiki.mythal.net/TRPG">玩桌面角色扮演游戏</a>而诞生的。
 
-要开始使用，请给我管理员权限，<a href="https://wiki.mythal.net/PlayTRPGBot">详细使用步骤请参阅这里</a>。
+要开始使用，请给我管理员权限，<a href="https://wiki.mythal.net/PlayTRPGBot">详细使用说明</a>。
 
 所有以「.」或「。」开头的消息将被我处理。<b>注意我会记录这些消息在数据库内！</b>
 
@@ -69,15 +63,15 @@ START_ZH_HANS = '''
 
 
 START_ZH_HANT = '''
-我是用來幫助在 Telegram 中<a href="http://wiki.mythal.net/TRPG">玩桌面角色扮演遊戲</a>而誕生的
+我是用來幫助在 Telegram 中<a href="http://wiki.mythal.net/TRPG">玩桌面角色扮演遊戲</a>而誕生的。
 
-要開始使用，請給我管理員權限，<a href="https://wiki.mythal.net/PlayTRPGBot">詳細使用步驟請參閱這裏</a>。
+要開始使用，請給我管理員權限，<a href="https://wiki.mythal.net/PlayTRPGBot">詳細使用說明</a>。
 
-所有以「.」或「。」開頭的消息將被我處理。<b>注意我會記錄這些消息在數據庫內！</b>
+所有以「.」或「。」開頭的消息將被我處理。 <b>注意我會記錄這些消息在數據庫內！ </b>
 
-開始前需要輸入 <code>/name 你的角色名</code>，<a href="https://wiki.mythal.net/PlayTRPGBot">這裏是所有命令說明</a>
+開始前需要輸入 <code>/name 你的角色名</code>，<a href="https://wiki.mythal.net/PlayTRPGBot">這裡是所有命令說明</a>
 
-<a href="https://log.mythal.net">在這裏可以查看記錄下的日誌</a>
+<a href="https://log.mythal.net">在這裡可以查看記錄下的日誌</a>
 
 祝冒險愉快！
 '''
