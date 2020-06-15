@@ -87,9 +87,7 @@ def update_round_message(game_round: Round, language_code, refresh=False):
     update_round_message_task.delay(game_round.chat_id, language_code, refresh)
 
 
-def start_round(update: telegram.Update, _context):
-    message: telegram.Message = update.message
-    assert isinstance(message, telegram.Message)
+def handle_start_round(message: telegram.Message, **_kwargs):
     _ = partial(get_by_user, user=message.from_user)
     if not is_group_chat(message.chat):
         return error_message(message, _(Text.NOT_GROUP))
@@ -103,6 +101,12 @@ def start_round(update: telegram.Update, _context):
     chat_id = sent.chat_id
     remove_round(chat_id)
     Round.objects.create(chat_id=chat_id, message_id=message_id, hide=False)
+
+
+def start_round(update: telegram.Update, _context):
+    message: telegram.Message = update.message
+    assert isinstance(message, telegram.Message)
+    handle_start_round(message)
 
 
 def get_round(update: telegram.Update) -> Optional[Round]:

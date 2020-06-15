@@ -1,6 +1,8 @@
+import datetime
 import io
 import uuid
 import logging
+import base64
 from functools import partial
 
 import telegram
@@ -43,6 +45,23 @@ def delete_message_task(chat_id, message_id):
     except telegram.error.BadRequest:
         pass
     cache.delete(deletion_task_key(chat_id, message_id))
+
+
+@app.task
+def send_timer_massage(chat_id, timer, comment: str):
+    encoded_comment = base64.b64encode(comment.encode())
+    reply_markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⟳", callback_data='timer:new:{}:{}'.format(timer, encoded_comment.decode())),
+        ]
+    ])
+    text = '{}秒倒计时结束'.format(timer)
+    if len(comment) > 0:
+        text += ': {}'.format(comment)
+    try:
+        bot.send_message(chat_id, text, reply_markup=reply_markup)
+    except telegram.error.BadRequest:
+        pass
 
 
 @app.task
@@ -167,6 +186,11 @@ def delete_message(chat_id, message_id, when=0):
         cache.set(key, task.id)
     else:
         delete_message_task.delay(chat_id, message_id)
+
+
+def timer_message(chat_id, timer, comment):
+    send_date = datetime.datetime.utcnow() + datetime.timedelta(seconds=timer)
+    send_timer_massage.apply_async((chat_id, timer, comment), eta=send_date)
 
 
 def cancel_delete_message(chat_id, message_id):

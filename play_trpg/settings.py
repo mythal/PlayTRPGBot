@@ -75,6 +75,7 @@ REDIS_URL = 'redis://{host}:{port}/{db}'.format(host=REDIS_HOST, port=REDIS_PORT
 CELERY_BROKER_URL = REDIS_URL
 CELERY_BACKEND_URL = REDIS_URL
 CELERY_IMPORTS = ['bot']
+CELERY_IGNORE_RESULT = True
 
 CACHES = {
     "default": {

@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+import base64
 from hashlib import sha256
 from functools import partial
 
@@ -15,13 +16,13 @@ from bot.variable import handle_list_variables, handle_variable_assign, handle_c
 from .roll import set_dice_face, handle_coc_roll, handle_loop_roll, handle_normal_roll, hide_roll_callback, \
     handle_set_dice_face
 from .character_name import set_name, get_name
-from .round_counter import round_inline_callback, start_round, hide_round,\
-    public_round, next_turn, handle_initiative
+from .round_counter import round_inline_callback, start_round, hide_round, \
+    public_round, next_turn, handle_initiative, handle_start_round
 from . import patterns
 from .display import Text, get_by_user, get
 from .system import Context, is_group_chat, is_gm, get_chat, get_player_by_id
 from bot.tasks import send_message, delete_message, cancel_delete_message, after_edit_delete_previous_message, \
-    error_message
+    error_message, timer_message
 
 from archive.models import Chat, Log
 from game.models import Player, Variable
@@ -112,6 +113,19 @@ def handle_delete_callback(query: telegram.CallbackQuery, context: CallbackConte
         query.answer(_(Text.DELETED))
 
 
+def timer_next_callback(query: telegram.CallbackQuery, data: str):
+    [_, timer, comment] = data.rsplit(':', 2)
+    try:
+        timer = int(timer)
+        comment = base64.b64decode(comment).decode()
+        if len(comment) > 128:
+            raise ValueError()
+    except ValueError:
+        query.answer("wrong timer callback arguments")
+    timer_message(query.message.chat_id, timer, comment)
+    query.answer()
+
+
 def inline_callback(update, context: CallbackContext):
     query = update.callback_query
     bot = context.bot
@@ -120,6 +134,8 @@ def inline_callback(update, context: CallbackContext):
     gm = is_gm(query.message.chat_id, query.from_user.id)
     if data.startswith('round'):
         round_inline_callback(bot, query, gm)
+    elif data.startswith('timer'):
+        timer_next_callback(query, data)
     elif data.startswith('hide_roll'):
         hide_roll_callback(bot, update)
     elif data.startswith('delete'):
@@ -310,11 +326,36 @@ def handle_lift(message: telegram.Message, chat: Chat, **_kwargs):
     delete_message(message.chat_id, message.message_id)
 
 
+def handle_set_timer(message: telegram.Message, text: str, **_kwargs):
+    _ = partial(get_by_user, user=message.from_user)
+    text = text.strip()
+    args = text.split(' ', 1)
+    if len(args) == 0:
+        return error_message(message, _(Text.TIMER_SYNTAX_ERROR))
+    try:
+        timer = args[0]
+        if len(timer) > 10:
+            raise ValueError()
+        timer = int(args[0])
+    except ValueError:
+        return error_message(message, _(Text.TIMER_SYNTAX_ERROR))
+    if len(args) > 1:
+        comment = args[1].strip()
+        if len(comment) > 128:
+            return error_message(message, "timer comment too long.")
+    else:
+        comment = ""
+    delete_message(message.chat_id, message.message_id)
+    timer_message(message.chat_id, timer, comment)
+
+
 message_handlers = [
     (re.compile(r'^[.。](start)\b'), handle_start),
     (re.compile(r'^[.。](save)\b'), handle_save),
+    (re.compile(r'^[.。](round)\b'), handle_start_round),
     (re.compile(r'^[.。](help)\b'), handle_help),
     (re.compile(r'^[.。](face)\s+'), handle_set_dice_face),
+    (re.compile(r'^[.。](timer)\b'), handle_set_timer),
     (re.compile(r'^[.。[【](rh?)\b'), handle_normal_roll),
     (re.compile(r'^[.。[【](hd)\b'), handle_normal_roll),
     (re.compile(r'^[.。[【](loh?)\b'), handle_loop_roll),

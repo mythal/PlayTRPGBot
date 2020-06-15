@@ -166,6 +166,7 @@ class Text(Enum):
     NOT_IN_GM_MODE = auto()
     FINISH_GM_MODE = auto()
     PLAYER_IN_THE_GM_MODE = auto()
+    TIMER_SYNTAX_ERROR = auto()
 
 
 zh_hans: Dict[Text, str] = {
@@ -265,6 +266,7 @@ zh_hans: Dict[Text, str] = {
     Text.NOT_GROUP: '必须在群聊中使用此命令',
     Text.INIT_USAGE: '用法： <code>.init [数字]</code> 或 <code>.init [角色名] = [数字]</code>',
     Text.INIT_WITHOUT_ROUND: '请先用 /round 指令开启回合轮',
+    Text.TIMER_SYNTAX_ERROR: '创建定时器：<code>.timer [秒数] [描述]</code>',
 }
 
 
@@ -365,6 +367,7 @@ zh_hant: Dict[Text, str] = {
     Text.NOT_GROUP: '必須在羣聊中使用此命令',
     Text.INIT_USAGE: '用法： <code>.init [數字]</code> 或 <code>.init [角色名] = [數字]</code>',
     Text.INIT_WITHOUT_ROUND: '請先用 /round 指令開啓回合輪',
+    Text.TIMER_SYNTAX_ERROR: '創建定時器：<code>.timer [秒數] [描述]</code>',
 }
 
 default_text = zh_hans
