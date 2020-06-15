@@ -4,7 +4,7 @@ from functools import partial
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, JobQueue
 
 import dice
 from entities import RollResult, Span, CocResult, LoopResult, Entities
@@ -19,23 +19,23 @@ from .display import Text, get_by_user
 def set_dice_face(update, context: CallbackContext):
     message = update.message
     assert isinstance(message, telegram.Message)
-    return handle_set_dice_face(message=message, text=' '.join(context.args))
+    return handle_set_dice_face(message, ' '.join(context.args), context.job_queue)
 
 
-def handle_set_dice_face(message: telegram.Message, text: str, **_kwargs):
+def handle_set_dice_face(message: telegram.Message, text: str, job_queue, **_kwargs):
     _ = partial(get_by_user, user=message.from_user)
     chat = get_chat(message.chat)
     try:
         face = int(text.strip())
     except ValueError:
-        return error_message(message, _(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face))
+        return error_message(job_queue, message, _(Text.SET_DEFAULT_FACE_SYNTAX).format(face=chat.default_dice_face))
     chat.default_dice_face = face
     chat.save()
-    delete_message(message.chat_id, message.message_id)
-    send_message(message.chat_id, _(Text.DEFAULT_FACE_SETTLED).format(face))
+    delete_message(job_queue, message.chat_id, message.message_id)
+    send_message(job_queue, message.chat_id, _(Text.DEFAULT_FACE_SETTLED).format(face))
 
 
-def handle_coc_roll(message: telegram.Message, command: str, name: str, text: str, chat: Chat, **__):
+def handle_coc_roll(message: telegram.Message, command: str, name: str, text: str, chat: Chat, job_queue, **__):
     """
     Call of Cthulhu
     """
@@ -56,7 +56,7 @@ def handle_coc_roll(message: telegram.Message, command: str, name: str, text: st
 
     # have not target value
     if len(numbers) == 0:
-        handle_roll(message, name, Entities([Span(text), RollResult(str(rolled), rolled)]), chat, hide)
+        handle_roll(job_queue, message, name, Entities([Span(text), RollResult(str(rolled), rolled)]), chat, hide)
         return
 
     skill_number = int(numbers[0])
@@ -96,10 +96,10 @@ def handle_coc_roll(message: telegram.Message, command: str, name: str, text: st
         level = _(Text.COC_FAIL)
 
     entities = [Span(text), Span(' → '), CocResult(rolled, level, modifier_name, rolled_list)]
-    handle_roll(message, name, Entities(entities), chat, hide)
+    handle_roll(job_queue, message, name, Entities(entities), chat, hide)
 
 
-def handle_loop_roll(message: telegram.Message, command: str, name: str, text: str, chat: Chat, **__):
+def handle_loop_roll(message: telegram.Message, command: str, name: str, text: str, chat: Chat, job_queue, **__):
     """
     Tales from the Loop
     """
@@ -110,17 +110,17 @@ def handle_loop_roll(message: telegram.Message, command: str, name: str, text: s
     roll_match = LOOP_ROLL_REGEX.match(text)
 
     if not roll_match:
-        return error_message(message, _(Text.LOOP_SYNTAX_ERROR))
+        return error_message(job_queue, message, _(Text.LOOP_SYNTAX_ERROR))
     number = int(roll_match.group(1))
     if number == 0:
-        return error_message(message, _(Text.LOOP_ZERO_DICE))
+        return error_message(job_queue, message, _(Text.LOOP_ZERO_DICE))
     result_list = [secrets.randbelow(6) + 1 for _i in range(number)]
     description = text[roll_match.end():]
     entities = Entities([LoopResult(result_list), Span(description)])
-    handle_roll(message, name, entities, chat, hide)
+    handle_roll(job_queue, message, name, entities, chat, hide)
 
 
-def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int, chat: Chat, **_):
+def handle_normal_roll(message: telegram.Message, command: str, name: str, start: int, chat: Chat, job_queue, **_):
     rpg_message = RpgMessage(message, start)
     hide = command[-1] == 'h'
     entities = rpg_message.entities.list
@@ -153,11 +153,11 @@ def handle_normal_roll(message: telegram.Message, command: str, name: str, start
                 error_text = Text[error_kind.value]
             except KeyError:
                 pass
-        return error_message(message, get_by_user(error_text, message.from_user))
-    handle_roll(message, name, Entities(next_entities), chat, hide)
+        return error_message(job_queue, message, get_by_user(error_text, message.from_user))
+    handle_roll(job_queue, message, name, Entities(next_entities), chat, hide)
 
 
-def handle_roll(message: telegram.Message, name: str, entities: Entities, chat: Chat, hide=False):
+def handle_roll(job_queue: JobQueue, message: telegram.Message, name: str, entities: Entities, chat: Chat, hide=False):
     _ = partial(get_by_user, user=message.from_user)
     kind = LogKind.ROLL.value
     result_text = entities.telegram_html()
@@ -195,7 +195,7 @@ def handle_roll(message: telegram.Message, name: str, entities: Entities, chat: 
             created=message.date,
         )
         chat.save()
-    delete_message(message.chat_id, message.message_id, 25)
+    delete_message(job_queue, message.chat_id, message.message_id, 25)
 
 
 def hide_roll_callback(_, update):

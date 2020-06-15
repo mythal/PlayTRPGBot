@@ -24,14 +24,14 @@ def get_temp_name(chat_id, user_id):
 
 
 def set_name(update: telegram.Update, context: CallbackContext):
-    bot = context
+    bot = context.bot
     args = context.args
     message = update.message
     assert isinstance(message, telegram.Message)
 
     _ = partial(get_by_user, user=message.from_user)
     if len(args) == 0:
-        return error_message(message, _(Text.NAME_SYNTAX_ERROR))
+        return error_message(context.job_queue, message, _(Text.NAME_SYNTAX_ERROR))
     user = message.from_user
     assert isinstance(user, telegram.User)
     name = ' '.join(args).strip()
@@ -41,8 +41,8 @@ def set_name(update: telegram.Update, context: CallbackContext):
     else:
         template = _(Text.NAME_SUCCESS)
     send_text = template.format(player=user.full_name, character=name)
-    send_message(message.chat_id, send_text)
-    delete_message(message.chat_id, message.message_id)
+    send_message(context.job_queue, message.chat_id, send_text)
+    delete_message(context.job_queue, message.chat_id, message.message_id)
 
 
 def get_name(message: telegram.Message, temp=False) -> Optional[str]:
