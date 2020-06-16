@@ -34,7 +34,7 @@ def round_inline_handle(_bot: telegram.Bot, job_queue: JobQueue, query: telegram
         prev_count = game_round.counter - 1
         if prev_count < 0:
             if game_round.round_counter <= 1:
-                answer_callback_query(query.id, _(Text.ALREADY_FIRST_TURN))
+                answer_callback_query(job_queue, query.id, _(Text.ALREADY_FIRST_TURN))
                 return
             else:
                 prev_count = len(actors) - 1
