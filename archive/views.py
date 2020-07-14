@@ -1,7 +1,7 @@
 from typing import Optional
 import datetime
 
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, Http404, HttpResponseNotAllowed
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.cache import cache_page
 from django.core.paginator import Paginator
@@ -10,8 +10,7 @@ from . import forms
 from .export import EXPORT_METHOD
 from .models import Chat, Tag
 from user.models import TelegramProfile
-from game.models import Player
-
+from game.models import Player, Variable
 
 CACHE_TTL = 3 * 24 * 60 * 60
 
@@ -77,6 +76,47 @@ def chat_page(request, chat_id):
         player=player,
     )
     return render(request, 'chat.html', context)
+
+
+def variables(request, chat_id):
+    chat: Chat = get_object_or_404(Chat, id=chat_id)
+    telegram_profile: Optional[TelegramProfile] = getattr(request.user, 'telegram', None)
+    if not telegram_profile:
+        raise Http404('You must login first.')
+    player = get_object_or_404(Player, user_id=telegram_profile.telegram_id, chat_id=chat.chat_id)
+    return render(request, 'variables.html', context=dict(chat=chat, player=player))
+
+
+def edit_variables(request, chat_id, variable_id=None):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed('POST')
+    chat: Chat = get_object_or_404(Chat, id=chat_id)
+    telegram_profile: Optional[TelegramProfile] = getattr(request.user, 'telegram', None)
+    if not telegram_profile:
+        raise Http404('You must logged in.')
+    player = get_object_or_404(Player, user_id=telegram_profile.telegram_id, chat_id=chat.chat_id)
+    response = redirect(variables, chat_id)
+    if variable_id is None:
+        if 'name' not in request.POST or request.POST['name'].strip() == '':
+            return HttpResponseBadRequest('The variable name cannot empty.')
+        variable = Variable(
+            player=player,
+            name=request.POST['name'].strip(),
+            value=request.POST.get('value', '').strip()
+        )
+        variable.save()
+        return response
+
+    variable = get_object_or_404(Variable, id=variable_id, player=player)
+
+    print(request.POST.get('delete', ''))
+    if request.POST.get('delete', '') != '':
+        variable.delete()
+        return response
+    variable.name = request.POST.get('name', variable.name)
+    variable.value = request.POST.get('value', variable.value)
+    variable.save()
+    return response
 
 
 def require_password(request, chat_id):

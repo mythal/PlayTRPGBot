@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.postgres.fields import JSONField
 
 class Round(models.Model):
     chat_id = models.BigIntegerField(primary_key=True)

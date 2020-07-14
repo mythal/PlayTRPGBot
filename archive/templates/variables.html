@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Variables - {{ chat.title }} - Mythal Archive{% endblock %}
+
+{% block main %}
+    <h1>{{ player.character_name }}</h1>
+
+    {% for var in player.variable_set.all %}
+        <form action="{% url "edit_variable" chat.id var.id %}" method="POST">
+            {% csrf_token %}
+            <input name="name" value="{{ var.name }}"/>
+            <input name="value" value="{{ var.value }}">
+            <label for="delete">del?</label>
+            <input type="checkbox" name="delete">
+            <input type="submit" value="Edit">
+        </form>
+    {% endfor %}
+
+    <form action="{% url "create_variable" chat.id %}" method="POST">
+        {% csrf_token %}
+        <input name="name" value="{{ var.name }}"/>
+        <input name="value" value="{{ var.value }}">
+        <input type="submit" value="Create">
+    </form>
+{% endblock %}

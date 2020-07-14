@@ -18,7 +18,7 @@
     {% endcache %}
     {% if player %}
         <nav class="player-bar">
-            Your character: <span class="character-name">{{ player.character_name }}</span>
+            My character: <span class="character-name">{{ player.character_name }}</span> <a href="{% url 'variables' chat.id %}">[edit variables]</a>
         </nav>
     {% endif %}
 {% endblock %}
