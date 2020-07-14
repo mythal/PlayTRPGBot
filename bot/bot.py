@@ -4,6 +4,7 @@ import re
 import base64
 from hashlib import sha256
 from functools import partial
+from urllib.parse import urljoin
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 def login_button():
     button = telegram.InlineKeyboardButton('Login Log Archives')
     button.login_url = {
-        'url': '{}/telegram-login/'.format(settings.ARCHIVE_URL),
+        'url': urljoin(settings.ARCHIVE_URL, '/telegram-login/'),
         'request_write_access': True,
     }
     return telegram.InlineKeyboardMarkup([[
