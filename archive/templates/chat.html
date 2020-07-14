@@ -37,8 +37,8 @@
     <section class="export">
         <h2>Export</h2>
         <ul>
-            <li><a href="{% url 'export' chat.id chat.title 'json' %}">JSON</a></li>
-            <li><a href="{% url 'export' chat.id chat.title 'csv' %}">CSV</a></li>
+            <li><a href="{% url 'export' chat.id 'json' %}">JSON</a></li>
+            <li><a href="{% url 'export' chat.id 'csv' %}">CSV</a></li>
         </ul>
     </section>
     <section class="tag-list">

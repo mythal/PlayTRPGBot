@@ -95,7 +95,7 @@ def require_password(request, chat_id):
 
 
 @cache_page(60)
-def export(request, chat_id, _title: str, method: str):
+def export(request, chat_id, method: str):
     now = datetime.datetime.now()
     current = get_object_or_404(Chat, id=chat_id)
     if current.password and not is_allow(request.session, chat_id):
