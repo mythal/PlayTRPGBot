@@ -38,7 +38,6 @@ services:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/archive.conf:ro
       - ./data/static:/data/static:ro
       - ./data/media:/data/media:ro
-      - ./data/web:/data/web:ro
   bot:
     build: .
     image: quanbrew/play_trpg_bot
