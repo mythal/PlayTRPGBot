@@ -2,58 +2,46 @@ version: "3"
 services:
   web:
     build: .
-    image: quanbrew/play_trpg_bot
+    # image: quanbrew/play_trpg_bot
     command: ./start.sh
     restart: always
+    ports:
+      - "8880:8880"
     volumes:
       - .:/code
-    depends_on:
-      - db
-      - redis
     environment:
       - PYTHONPATH=/code
-  db:
-    image: postgres:11
-    volumes:
-      - ./data/db:/var/lib/postgresql/data
-    restart: always
-    environment:
-      POSTGRES_DB: mythal
-    env_file:
-      - .env
-  redis:
-    image: redis
-    restart: always
-    volumes:
-      - ./data/redis:/data
-  nginx:
-    image: nginx
-    restart: always
-    ports:
-      - "127.0.0.1:8088:80"
-    depends_on:
-      - web
-      - bot
-    volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/archive.conf:ro
-      - ./data/static:/data/static:ro
-      - ./data/media:/data/media:ro
+  # db:
+  #   image: postgres:11
+  #   volumes:
+  #     - ./data/db:/var/lib/postgresql/data
+  #   restart: always
+  #   environment:
+  #     POSTGRES_DB: mythal
+  #   env_file:
+  #     - .env
+  # redis:
+  #   image: redis
+  #   restart: always
+  #   volumes:
+  #     - ./data/redis:/data
+  # nginx:
+  #   image: nginx
+  #   restart: always
+  #   ports:
+  #     - "127.0.0.1:8088:80"
+  #   depends_on:
+  #     - web
+  #     - bot
+  #   volumes:
+  #     - ./deploy/nginx.conf:/etc/nginx/conf.d/archive.conf:ro
+  #     - ./data/static:/data/static:ro
+  #     - ./data/media:/data/media:ro
   bot:
     build: .
-    image: quanbrew/play_trpg_bot
+    # image: quanbrew/play_trpg_bot
     command: python start_bot.py
-    restart: always
-    depends_on:
-      - db
-      - redis
-    env_file:
-      - .env
-    volumes:
-      - .:/code
-  touzi:
-    build: .
-    image: quanbrew/play_trpg_bot
-    command: python touzi_bot.py
+    network_mode: "host"
     restart: always
     env_file:
       - .env

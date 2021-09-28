@@ -44,24 +44,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    'graphene_django',
     'django_filters',
 ]
 
 if DEBUG:
     INSTALLED_APPS.append('debug_toolbar')
     INSTALLED_APPS.append('corsheaders')
-
-
-GRAPHENE = {
-    'SCHEMA': 'schema.schema',
-}
-
-if DEBUG:
-    GRAPHENE['MIDDLEWARE'] = [
-        'graphene_django.debug.DjangoDebugMiddleware',
-    ]
-
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
 
