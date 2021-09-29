@@ -2,15 +2,17 @@ version: "3"
 services:
   web:
     build: .
-    # image: quanbrew/play_trpg_bot
+    image: whoooa/play_trpg_bot
     command: ./start.sh
     restart: always
     ports:
       - "8880:8880"
     volumes:
-      - .:/code
+      - ./data/:/code/data
     environment:
       - PYTHONPATH=/code
+    env_file:
+      - .env
   # db:
   #   image: postgres:11
   #   volumes:
@@ -39,7 +41,7 @@ services:
   #     - ./data/media:/data/media:ro
   bot:
     build: .
-    # image: quanbrew/play_trpg_bot
+    image: whoooa/play_trpg_bot
     command: python start_bot.py
     network_mode: "host"
     restart: always
